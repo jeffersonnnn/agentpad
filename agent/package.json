@@ -1,0 +1,31 @@
+{
+  "name": "agentpad-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AgentPad agent runtime: the ERC-4337 account + session-key setup (Milestone 1) and the agent loop.",
+  "scripts": {
+    "plan": "node account.mjs plan",
+    "predict": "node account.mjs predict",
+    "grant": "node account.mjs grant",
+    "test:sessionkey": "node test/sessionkey.fork.mjs",
+    "loop": "node loop.mjs",
+    "x402": "node x402.mjs"
+  },
+  "dependencies": {
+    "viem": "^2.56.3",
+    "@zerodev/sdk": "^5.5.10",
+    "@zerodev/ecdsa-validator": "^5.4.9",
+    "@zerodev/permissions": "^5.6.3",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76",
+    "pg": "^8.13.1"
+  },
+  "optionalDependencies": {
+    "@account-kit/smart-contracts": "^4.65.0",
+    "@aa-sdk/core": "^4.65.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

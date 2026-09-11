@@ -1,0 +1,19 @@
+{
+  "name": "agentpad-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AgentPad backend (Milestone 3): Postgres schema, launch orchestration (creatorFeeRecipient=splitter, creator-signed), and the fee-sweep + distribution keeper. Never custodies creator or holder funds.",
+  "scripts": {
+    "launch": "node launch.mjs",
+    "keeper": "node keeper.mjs",
+    "migrate": "psql \"$DATABASE_URL\" -f db/schema.sql"
+  },
+  "dependencies": {
+    "viem": "^2.56.3",
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

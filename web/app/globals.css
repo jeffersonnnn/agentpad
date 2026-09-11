@@ -1,0 +1,128 @@
+/* Global base for the 2026-09-11 cinematic redesign. Committed to one dark navy look site-wide.
+   Fonts arrive as CSS variables from next/font (see app/layout.tsx). The page modules
+   (landing / agent / create) layer their own tokens on top; the shared design language lives here:
+   the navy ground, the Inter/Instrument-Serif pairing, the liquid-glass surface, and the fade-rise
+   entrance. Utility classes below are global on purpose so any page or module can use them by name. */
+
+:root {
+  color-scheme: dark;
+
+  /* Cinematic navy palette. HSL values from the redesign spec. */
+  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --navy: hsl(201 100% 13%);
+  --navy-deep: hsl(201 100% 9%);
+  --foreground: hsl(0 0% 100%);
+  --muted-foreground: hsl(240 4% 66%);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --pos: #35d07f;
+  --neg: #ff6b5e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--navy);
+  color: var(--foreground);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+}
+
+/* ---------- Liquid glass surface (spec verbatim, reusable across pages) ---------- */
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.03);
+  background-blend-mode: luminosity;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+.liquid-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.4px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(255, 255, 255, 0.15) 20%,
+    rgba(255, 255, 255, 0) 40%,
+    rgba(255, 255, 255, 0) 60%,
+    rgba(255, 255, 255, 0.15) 80%,
+    rgba(255, 255, 255, 0.45) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ---------- Entrance animation (spec verbatim) ---------- */
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-rise {
+  animation: fade-rise 0.8s ease-out both;
+}
+.animate-fade-rise-delay {
+  animation: fade-rise 0.8s ease-out 0.2s both;
+}
+.animate-fade-rise-delay-2 {
+  animation: fade-rise 0.8s ease-out 0.4s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-rise,
+  .animate-fade-rise-delay,
+  .animate-fade-rise-delay-2 {
+    animation: none;
+  }
+}
+
+/* ---------- Scroll reveal ----------
+   Global (not module-scoped) so the useScrollReveal hook can toggle the literal
+   "reveal" / "in" class names. These set the start and end states only; the opacity
+   and transform animate via each card's own `transition` (which includes opacity). */
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal.in {
+    opacity: 1;
+    transform: none;
+  }
+}

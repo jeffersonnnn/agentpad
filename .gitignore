@@ -1,0 +1,22 @@
+# secrets
+.env
+.env.*
+# per-agent runtime data + creator-supplied X keys (opt-in, creator-funded) — NEVER commit
+agent/.data/
+agent/.secrets/
+
+# foundry
+out/
+cache/
+broadcast/
+
+# deps (installed locally, not committed)
+/lib/
+node_modules/
+
+# next.js / frontend build output
+.next/
+web/.next/
+web/out/
+.vercel/
+*.tsbuildinfo

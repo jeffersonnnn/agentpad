@@ -1,0 +1,164 @@
+/* Self-contained styles for the wallet connect button so it looks right on any page (landing, board,
+   square, create, agent), independent of each page's CSS-module tokens. Theme-agnostic colors. */
+
+.row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  transition: transform 0.12s ease, background 0.12s ease, opacity 0.12s ease, border-color 0.12s ease;
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* 2026-09-11 redesign: glass button on the navy ground (was solid purple). */
+.primary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(4px);
+}
+.primary:hover:not(:disabled) {
+  transform: scale(1.03);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.warn {
+  background: #e5a50a;
+  color: #201500;
+}
+.warn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #f0b01a;
+}
+
+/* Connected address pill — neutral border works in light and dark. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  border-radius: 999px;
+  padding: 8px 13px;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.pill:hover {
+  border-color: color-mix(in srgb, currentColor 55%, transparent);
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #35d07f;
+  flex: none;
+}
+
+/* ── Wallet picker dropdown ─────────────────────────────────────────────────────────────────────── */
+.wrap {
+  position: relative;
+  display: inline-block;
+}
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 100;
+  min-width: 236px;
+  padding: 6px;
+  border-radius: 16px;
+  /* Committed dark navy to match the redesigned nav. */
+  background: hsl(201 100% 11%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+}
+.menuHead {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  padding: 8px 10px 6px;
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 10px 10px;
+  border-radius: 9px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: inherit;
+  text-align: left;
+}
+.item:hover:not(:disabled) {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+.item:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  flex: none;
+  object-fit: contain;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+.iconFallback {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.itemSpin {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.6;
+}
+.menuNote {
+  font-size: 11.5px;
+  opacity: 0.6;
+  line-height: 1.4;
+  padding: 6px 10px 4px;
+}
