@@ -36,7 +36,7 @@ export default function BoardPage() {
       <div className={styles.container}>
         <div className={styles.topbar}>
           <Link href="/board" className={styles.brand}>
-            Agent<span>Pad</span>
+            Sling<span>shot</span>
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Link href="/create" className={styles.chip} style={{ textDecoration: "none", padding: "7px 14px" }}>

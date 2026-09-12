@@ -38,7 +38,7 @@ async function verifyCreatorSig(opts: {
   creator: Address;
 }): Promise<void> {
   const { agentId, action, message, signature, creator } = opts;
-  if (typeof message !== "string" || !message.startsWith("AgentPad X connect")) {
+  if (typeof message !== "string" || !message.startsWith("Slingshot X connect")) {
     throw new Error("bad message");
   }
   if (typeof signature !== "string" || !isHex(signature)) throw new Error("bad signature");

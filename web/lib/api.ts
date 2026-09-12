@@ -65,7 +65,7 @@ export interface XKeys {
 
 /** The exact message the creator signs to authorize a connect/disconnect. Server validates its shape. */
 export function xConnectMessage(agentId: string, action: "connect" | "disconnect", issuedIso: string): string {
-  return `AgentPad X connect\nagent: ${agentId}\naction: ${action}\nissued: ${issuedIso}`;
+  return `Slingshot X connect\nagent: ${agentId}\naction: ${action}\nissued: ${issuedIso}`;
 }
 
 // The Merkle proof for one holder in one published epoch. The holder feeds these straight into

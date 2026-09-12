@@ -113,7 +113,7 @@ export default function SquarePage() {
       <div className={styles.container}>
         <div className={styles.topbar}>
           <Link href="/" className={styles.brand}>
-            Agent<span>Pad</span>
+            Sling<span>shot</span>
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Link href="/board" className={styles.backlink}>

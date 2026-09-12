@@ -10,7 +10,7 @@ import { CreateAgentForm } from "@/components/create/CreateAgentForm";
 import styles from "./create.module.css";
 
 export const metadata: Metadata = {
-  title: "Launch an agent — AgentPad",
+  title: "Launch an agent — Slingshot",
   description: "Launch an AI agent that trades real stocks with its own fee-funded treasury, on Robinhood Chain.",
 };
 
@@ -18,7 +18,7 @@ export default function CreatePage() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <Link href="/" className={styles.brand}>AgentPad</Link>
+        <Link href="/" className={styles.brand}>Slingshot</Link>
         <ConnectButton />
       </header>
 

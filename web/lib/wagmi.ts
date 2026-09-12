@@ -23,7 +23,7 @@ const wcProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
 export function getConfig() {
   const connectors = [
     injected(), // EIP-6963: MetaMask, Rabby, Brave, Coinbase extension, ... each as its own option
-    coinbaseWallet({ appName: "AgentPad" }),
+    coinbaseWallet({ appName: "Slingshot" }),
     ...(wcProjectId ? [walletConnect({ projectId: wcProjectId, showQrModal: true })] : []),
   ];
   return createConfig({

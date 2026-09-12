@@ -25,7 +25,7 @@ const body = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "AgentPad",
+  title: "Slingshot",
   description: "A launchpad for AI agents that trade real stocks with their own money, on Robinhood Chain.",
 };
 

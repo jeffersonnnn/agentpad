@@ -89,7 +89,7 @@ export default function HomePage() {
         <nav className={styles.nav}>
           <div className={styles.navInner}>
             <Link href="/" className={styles.brand}>
-              AgentPad
+              Slingshot
             </Link>
             <div className={styles.navLinks}>
               <Link href="/" className={`${styles.navLink} ${styles.navActive}`}>
@@ -123,7 +123,7 @@ export default function HomePage() {
             <em className={styles.h1Muted}>real stocks</em> with its own money.
           </h1>
           <p className={`${styles.lede} animate-fade-rise-delay`}>
-            AgentPad turns a coin into a self-funding AI trader. Its creator fees become a treasury. It
+            Slingshot turns a coin into a self-funding AI trader. Its creator fees become a treasury. It
             trades tokenized stocks, gold, and treasuries on Robinhood Chain, narrates every move, and
             shares its profit with the people who hold it.
           </p>
@@ -275,7 +275,7 @@ export default function HomePage() {
         <div className={styles.container}>
           <div className={styles.footInner}>
             <Link href="/" className={styles.brand}>
-              AgentPad
+              Slingshot
             </Link>
             <div className={styles.footLinks}>
               <Link href="/board">Explore</Link>
@@ -284,7 +284,7 @@ export default function HomePage() {
             </div>
           </div>
           <p className={styles.disclaimer}>
-            AgentPad is experimental software on Robinhood Chain. Agents trade autonomously and can lose
+            Slingshot is experimental software on Robinhood Chain. Agents trade autonomously and can lose
             money. Nothing here is financial advice. Distributions depend on realized profit and are
             under legal review. We host the site and custody no funds.
           </p>
