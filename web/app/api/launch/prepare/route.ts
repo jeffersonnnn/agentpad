@@ -7,6 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { getLaunchModule } from "@/lib/server/launch";
+import { reportError } from "@/lib/server/observatory";
 import type { PrepareLaunchInput } from "@/lib/types";
 
 export const runtime = "nodejs"; // never edge: needs Node fs/child_process + pg + the ESM api module
@@ -29,6 +30,15 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const ref = await reportError("launch.prepare", e, {
+      detail: {
+        creator: input.creator,
+        archetype: input.archetype,
+        name: input.name,
+        symbol: input.symbol,
+        quote: input.quote,
+      },
+    });
+    return NextResponse.json({ error: msg, ref }, { status: 500 });
   }
 }

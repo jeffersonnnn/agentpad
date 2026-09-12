@@ -35,7 +35,8 @@ import {
   parseEther,
   parseUnits,
 } from "viem";
-import { prepareLaunch, finalizeLaunch } from "@/lib/api";
+import { prepareLaunch, finalizeLaunch, ApiError } from "@/lib/api";
+import { reportClient, describeError } from "@/lib/observatory-client";
 import type { PrepareLaunchInput, FinalizeLaunchResult } from "@/lib/types";
 import { CHAIN_ID, USDG, USDG_DECIMALS, type QuoteAsset } from "@/lib/constants";
 
@@ -139,6 +140,7 @@ export function useLaunchFlow() {
   const [progress, setProgress] = useState<LaunchProgress>({ phase: "idle", message: "" });
   const [outcome, setOutcome] = useState<LaunchOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorRef, setErrorRef] = useState<string | null>(null);
 
   const set = useCallback((phase: LaunchPhase, message?: string) => {
     setProgress({ phase, message: message ?? PHASE_LABELS[phase] });
@@ -148,12 +150,22 @@ export function useLaunchFlow() {
     setProgress({ phase: "idle", message: "" });
     setOutcome(null);
     setError(null);
+    setErrorRef(null);
   }, []);
 
   const launch = useCallback(
     async ({ input, developerBuy, quote }: LaunchArgs): Promise<LaunchOutcome | null> => {
       setError(null);
+      setErrorRef(null);
       setOutcome(null);
+
+      // Track the phase we are in so a failure report says WHERE it broke. `set` alone updates React
+      // state, which we cannot read back synchronously inside the catch, so mirror it here.
+      let phaseAtFailure: LaunchPhase = "preparing";
+      const go = (phase: LaunchPhase, message?: string) => {
+        phaseAtFailure = phase;
+        set(phase, message);
+      };
 
       if (!publicClient) {
         setError("No RPC client. Reload the page and try again.");
@@ -175,7 +187,7 @@ export function useLaunchFlow() {
 
       try {
         // Step 1 — prepare (server deploys the splitter, predicts the account, returns the unsigned tx).
-        set("preparing");
+        go("preparing");
         const prep = await prepareLaunch({ ...input, creator });
 
         if (prep.alreadyLaunched || !prep.launchTx) {
@@ -193,7 +205,7 @@ export function useLaunchFlow() {
         // Step 2 — resolve (token, curve) by simulating the exact unsigned tx. A balance override
         // covers the value + gas so the call never reverts for a low balance; the addresses come from
         // the CREATE2 salt, so the simulated values match what the real tx will produce.
-        set("resolving");
+        go("resolving");
         const sim = await publicClient.call({
           account: creator,
           to,
@@ -211,12 +223,12 @@ export function useLaunchFlow() {
         const curveAddr = decoded[1];
 
         // Step 3 — the creator signs + broadcasts launchToken (pays exactly the launch fee).
-        set("awaiting-signature");
+        go("awaiting-signature");
         // The wallet client is already bound to Robinhood Chain (gated above), so viem uses its chain.
         const launchTxHash = await walletClient.sendTransaction({ to, data, value });
 
         // Step 4 — confirm.
-        set("confirming");
+        go("confirming");
         const receipt = await publicClient.waitForTransactionReceipt({ hash: launchTxHash });
         if (receipt.status !== "success") {
           throw new Error(`Launch transaction reverted (${launchTxHash}).`);
@@ -224,7 +236,7 @@ export function useLaunchFlow() {
 
         // Step 5 — finalize (server verifies the tx, wires the curve, deploys the distributor,
         // records the row, starts the loop).
-        set("finalizing");
+        go("finalizing");
         const finalize = await finalizeLaunch({
           agentId: prep.agentId,
           tokenAddr,
@@ -247,7 +259,7 @@ export function useLaunchFlow() {
         const buyAmount = (developerBuy ?? "").trim();
         if (buyAmount && Number(buyAmount) > 0) {
           try {
-            set("dev-buy");
+            go("dev-buy");
             const devBuyTxHash = await executeDeveloperBuy({
               walletClient,
               publicClient,
@@ -263,12 +275,30 @@ export function useLaunchFlow() {
         }
 
         setOutcome(result);
-        set("done");
+        go("done");
         return result;
       } catch (e) {
         const msg = normalizeError(e);
         setError(msg);
         set("error");
+        // Surface a reference id so the failure reaches the developer (Observatory). A server error
+        // (prepare/finalize) already carries a ref in its body; reuse it. Otherwise this broke in the
+        // browser (wallet/RPC/resolve) — report it client-side to mint one.
+        void (async () => {
+          let ref: string | null = null;
+          if (e instanceof ApiError && e.body && typeof e.body === "object" && "ref" in e.body) {
+            ref = String((e.body as { ref?: unknown }).ref ?? "") || null;
+          }
+          if (!ref) {
+            const { message, detail } = describeError(e);
+            ref = await reportClient({
+              scope: "launch.client",
+              message,
+              detail: { ...detail, phase: phaseAtFailure, creator },
+            });
+          }
+          if (ref) setErrorRef(ref);
+        })();
         return null;
       }
     },
@@ -278,7 +308,7 @@ export function useLaunchFlow() {
   const busy =
     progress.phase !== "idle" && progress.phase !== "done" && progress.phase !== "error";
 
-  return { launch, reset, progress, outcome, error, busy };
+  return { launch, reset, progress, outcome, error, errorRef, busy };
 }
 
 // A developer buy right after launch: buy the fresh token from its bonding curve, recipient = creator.

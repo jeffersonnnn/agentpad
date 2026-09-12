@@ -87,7 +87,7 @@ const PERSONA_TEMPLATES: Record<ArchetypeSlug, string> = {
 
 export function CreateAgentForm() {
   const { isConnected, chainId } = useAccount();
-  const { launch, reset, progress, outcome, error, busy } = useLaunchFlow();
+  const { launch, reset, progress, outcome, error, errorRef, busy } = useLaunchFlow();
   const [form, setForm] = useState<FormState>(INITIAL);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -297,6 +297,7 @@ export function CreateAgentForm() {
         {error ? (
           <div className={styles.launchError} role="alert">
             <strong>Launch failed.</strong> {error}
+            {errorRef ? <span className={styles.errorRef}>Reference: {errorRef}</span> : null}
             <button type="button" className={styles.retryButton} onClick={reset}>
               Dismiss
             </button>

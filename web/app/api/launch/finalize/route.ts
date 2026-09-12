@@ -8,6 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { getLaunchModule } from "@/lib/server/launch";
+import { reportError } from "@/lib/server/observatory";
 import type { FinalizeLaunchInput } from "@/lib/types";
 
 export const runtime = "nodejs"; // never edge
@@ -33,6 +34,12 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    // The creator ALREADY paid and the token is on-chain — capture everything needed to finalize by
+    // hand (agentId + txHash + addresses) so a finalize failure is recoverable, not a lost launch.
+    const ref = await reportError("launch.finalize", e, {
+      level: "error",
+      detail: { agentId, tokenAddr, curveAddr, txHash },
+    });
+    return NextResponse.json({ error: msg, ref }, { status: 500 });
   }
 }

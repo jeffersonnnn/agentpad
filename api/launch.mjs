@@ -135,38 +135,46 @@ const FACTORY_ABI = [
   },
 ];
 
-// FeeSplitter abi + creation bytecode come from the compiled artifact (out/), so this stays in sync
-// with src/FeeSplitter.sol without a hardcoded blob. Loaded lazily so pure helpers need no file I/O.
-function loadFeeSplitterArtifact(artifactPath) {
-  const p = artifactPath || path.join(REPO_ROOT, "out", "FeeSplitter.sol", "FeeSplitter.json");
-  let json;
-  try {
-    json = JSON.parse(fs.readFileSync(p, "utf8"));
-  } catch (e) {
-    throw new Error(
-      `could not read the compiled FeeSplitter artifact at ${p} — run \`forge build\` first (${e.message})`
-    );
+// Load a compiled contract artifact (abi + creation bytecode). In dev, the Foundry build output in
+// `out/` is the source of truth, so this stays in sync with src/ without a hardcoded blob. In
+// production the box has no Foundry toolchain and `out/` is gitignored, so we fall back to a committed
+// copy under `deploy/artifacts/<Name>.json` (trimmed to { abi, bytecode:{object} }, generated from the
+// same forge build). The explicit path (tests) still wins over both. Loaded lazily so pure helpers
+// need no file I/O.
+function loadContractArtifact(name, explicitPath) {
+  const candidates = explicitPath
+    ? [explicitPath]
+    : [
+        path.join(REPO_ROOT, "out", `${name}.sol`, `${name}.json`),
+        path.join(REPO_ROOT, "deploy", "artifacts", `${name}.json`),
+      ];
+  let lastErr;
+  for (const p of candidates) {
+    let json;
+    try {
+      json = JSON.parse(fs.readFileSync(p, "utf8"));
+    } catch (e) {
+      lastErr = e;
+      continue;
+    }
+    const bytecode = json?.bytecode?.object;
+    if (!json?.abi || !bytecode) throw new Error(`${name} artifact at ${p} is missing abi/bytecode`);
+    return { abi: json.abi, bytecode };
   }
-  const bytecode = json?.bytecode?.object;
-  if (!json?.abi || !bytecode) throw new Error(`FeeSplitter artifact at ${p} is missing abi/bytecode`);
-  return { abi: json.abi, bytecode };
+  throw new Error(
+    `could not read the compiled ${name} artifact (tried: ${candidates.join(", ")}) — ` +
+      `run \`forge build\`, or ship deploy/artifacts/${name}.json (${lastErr?.message || "not found"})`
+  );
 }
 
-// Distributor abi + creation bytecode from the compiled artifact (out/), same pattern as the
-// splitter. One Distributor is deployed PER agent (ADR 0002 / SPEC 3) so holders can claim USDG.
+// One FeeSplitter is deployed PER launch (creatorFeeRecipient, ADR 0003).
+function loadFeeSplitterArtifact(artifactPath) {
+  return loadContractArtifact("FeeSplitter", artifactPath);
+}
+
+// One Distributor is deployed PER agent (ADR 0002 / SPEC 3) so holders can claim USDG.
 function loadDistributorArtifact(artifactPath) {
-  const p = artifactPath || path.join(REPO_ROOT, "out", "Distributor.sol", "Distributor.json");
-  let json;
-  try {
-    json = JSON.parse(fs.readFileSync(p, "utf8"));
-  } catch (e) {
-    throw new Error(
-      `could not read the compiled Distributor artifact at ${p} — run \`forge build\` first (${e.message})`
-    );
-  }
-  const bytecode = json?.bytecode?.object;
-  if (!json?.abi || !bytecode) throw new Error(`Distributor artifact at ${p} is missing abi/bytecode`);
-  return { abi: json.abi, bytecode };
+  return loadContractArtifact("Distributor", artifactPath);
 }
 
 // ── tiny dependency-free .env loader (mirrors agent/account.mjs; does not override set env) ───────

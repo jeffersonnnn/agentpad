@@ -4,8 +4,54 @@
 // inputs and read their classes from the co-located create.module.css. Each field renders a label,
 // an optional hint, the control, and an optional error line.
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import styles from "@/app/create/create.module.css";
+
+// The token logo preview. The upload returns a public Pinata gateway URL, which is heavily rate-limited
+// and often fails to load (a broken-image box). So we degrade gracefully: on error, retry the same CID
+// on a second public gateway (ipfs.io); if that also fails, show a neutral placeholder instead of a
+// broken image. Display-only — the stored/on-chain URL is unchanged.
+function ipfsFallbacks(url: string): string[] {
+  const m = url.match(/\/ipfs\/([A-Za-z0-9]+.*)$/);
+  if (!m) return [url];
+  const cid = m[1];
+  const alts = [url, `https://ipfs.io/ipfs/${cid}`, `https://dweb.link/ipfs/${cid}`];
+  return Array.from(new Set(alts)); // de-dupe if the source already is one of these
+}
+
+function Thumb({ src, alt }: { src: string; alt: string }) {
+  const chain = ipfsFallbacks(src);
+  const [idx, setIdx] = useState(0);
+  const [failed, setFailed] = useState(false);
+
+  // Reset when the source changes (a new upload / paste).
+  useEffect(() => {
+    setIdx(0);
+    setFailed(false);
+  }, [src]);
+
+  if (failed) {
+    return (
+      <div className={styles.uploadThumbFallback} aria-label="Logo preview unavailable" title={src}>
+        <span aria-hidden>🖼️</span>
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={chain[idx]}
+      alt={alt}
+      className={styles.uploadThumb}
+      referrerPolicy="no-referrer"
+      loading="eager"
+      onError={() => {
+        if (idx < chain.length - 1) setIdx((i) => i + 1);
+        else setFailed(true);
+      }}
+    />
+  );
+}
 
 export function Field({
   label,
@@ -148,8 +194,7 @@ export function ImageUpload({
     return (
       <div className={styles.upload}>
         <div className={styles.uploadPreview}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={value} alt="Token logo preview" className={styles.uploadThumb} />
+          <Thumb src={value} alt="Token logo preview" />
           <div className={styles.uploadPreviewMeta}>
             <span className={styles.uploadUrl}>{value}</span>
             <div className={styles.uploadActions}>
