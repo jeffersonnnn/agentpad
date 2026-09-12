@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { ConnectButton } from "@/components/ConnectButton";
 import { RevealGroup } from "@/components/RevealGroup";
+import { ContractChip } from "@/components/ContractChip";
 import styles from "./landing.module.css";
 
 const HERO_VIDEO =
@@ -138,6 +139,9 @@ export default function HomePage() {
           <p className={`${styles.microNote} animate-fade-rise-delay-2`}>
             No sign-up. Connect a wallet only to launch or claim.
           </p>
+          <div className={`${styles.contractRow} animate-fade-rise-delay-2`}>
+            <ContractChip />
+          </div>
         </div>
       </section>
 

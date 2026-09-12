@@ -254,6 +254,52 @@
   color: var(--muted);
 }
 
+/* ---------- Contract chip (copyable) ---------- */
+.contractRow {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+.contractChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 999px;
+  padding: 9px 16px;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.contractChip:hover {
+  transform: scale(1.03);
+}
+.contractLabel {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.contractValue {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text);
+  max-width: 46vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contractCopy {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+
 /* ---------- Shared section shell ---------- */
 .section {
   padding: 96px 0;
