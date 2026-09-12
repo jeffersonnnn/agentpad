@@ -483,6 +483,12 @@
   word-break: break-all;
 }
 
+.uploadDone {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
 .uploadActions {
   display: flex;
   gap: 14px;

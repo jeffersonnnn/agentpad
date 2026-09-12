@@ -9,6 +9,13 @@ export const CHAIN_ID = 4663 as const; // Robinhood Chain (viem/chains `robinhoo
 export const PUBLIC_RPC = "https://rpc.mainnet.chain.robinhood.com";
 export const EXPLORER_URL = "https://robinhoodchain.blockscout.com";
 
+// PONS launchpad web app. Our tokens are launched via the PONS factory, so each token has a PONS
+// launchpad page with the live trading chart + buy/sell. We link out to it for the full market view.
+export const PONS_LAUNCHPAD_URL = "https://www.ponsfamily.com/launchpad";
+export function ponsLaunchpadUrl(tokenAddr: string): string {
+  return `${PONS_LAUNCHPAD_URL}/${tokenAddr}`;
+}
+
 // ── PONS V2 + core tokens (FACTS.md; also encoded in api/launch.mjs) ──────────────────────────────
 export const PONS_FACTORY: Address = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e";
 export const FEE_ESCROW: Address = "0xd3AFEB2a57f70eF218Aa82451c51B2fb0416Ac9e";

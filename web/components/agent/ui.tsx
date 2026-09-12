@@ -3,7 +3,7 @@
 // Small presentational primitives shared by the agent page + board. Styling comes from the shared
 // agent.module.css. No data fetching here.
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ARCHETYPES } from "@/lib/constants";
 import type { AgentStatus } from "@/lib/types";
 import { addrUrl, shortAddr } from "./onchain";
@@ -45,6 +45,35 @@ export function AddressPill({
     <a className={styles.addr} href={href} target="_blank" rel="noreferrer" title={addr}>
       {label ?? shortAddr(addr)}
     </a>
+  );
+}
+
+/** Full address shown in monospace with a one-click copy button (flashes "Copied"). */
+export function CopyAddress({ addr, label }: { addr?: string | null; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  if (!addr) return <span className={styles.muted}>—</span>;
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(addr as string);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {
+      // clipboard blocked (insecure context) — the value is still visible to select manually
+    }
+  }
+  return (
+    <span className={styles.copyRow}>
+      {label ? <span className={styles.copyLabel}>{label}</span> : null}
+      <code className={styles.copyValue} title={addr}>
+        {addr}
+      </code>
+      <button type="button" className={styles.copyBtn} onClick={copy} aria-label="Copy address">
+        {copied ? "Copied" : "Copy"}
+      </button>
+      <a className={styles.copyBtn} href={addrUrl(addr)} target="_blank" rel="noreferrer">
+        Explorer
+      </a>
+    </span>
   );
 }
 

@@ -26,6 +26,7 @@ export const ERC20_ABI = [
   { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },
+  { type: "function", name: "totalSupply", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   {
     type: "function",
     name: "balanceOf",
@@ -150,6 +151,20 @@ export function useTokenMeta(token?: Address | null) {
     decimals: (decimals?.result as number | undefined) ?? 18,
     isLoading: res.isLoading,
   };
+}
+
+/** ERC-20 total supply for a token (raw base units + a human number). */
+export function useTokenSupply(token?: Address | null, decimals = 18) {
+  const res = useReadContract({
+    address: (token as Address) ?? undefined,
+    abi: ERC20_ABI,
+    functionName: "totalSupply",
+    chainId: CHAIN_ID,
+    query: { enabled: !!token },
+  });
+  const raw = (res.data as bigint | undefined) ?? null;
+  const supply = raw !== null ? Number(formatUnits(raw, decimals)) : null;
+  return { raw, supply: Number.isFinite(supply as number) ? supply : null, isLoading: res.isLoading };
 }
 
 /** Native ETH balance of an address, refreshed periodically. */

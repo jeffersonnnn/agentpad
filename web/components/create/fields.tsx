@@ -196,7 +196,7 @@ export function ImageUpload({
         <div className={styles.uploadPreview}>
           <Thumb src={value} alt="Token logo preview" />
           <div className={styles.uploadPreviewMeta}>
-            <span className={styles.uploadUrl}>{value}</span>
+            <span className={styles.uploadDone}>Logo uploaded</span>
             <div className={styles.uploadActions}>
               <button
                 type="button"
