@@ -16,7 +16,8 @@ module.exports = {
       cwd: path.join(REPO, "web"),
       script: "npm",
       args: "run start",
-      env: { NODE_ENV: "production", PORT: "3000" },
+      // Port defaults to 3000; override with AGENTPAD_WEB_PORT when 3000 is taken (e.g. a shared box).
+      env: { NODE_ENV: "production", PORT: process.env.AGENTPAD_WEB_PORT || "3000" },
       autorestart: true,
       max_memory_restart: "700M",
     },
