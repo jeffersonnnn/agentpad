@@ -20,3 +20,6 @@ web/.next/
 web/out/
 .vercel/
 *.tsbuildinfo
+
+# /brag video output (local only)
+brag-output/

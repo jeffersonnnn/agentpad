@@ -202,10 +202,33 @@
   padding-right: 34px;
 }
 
+/* The native option list renders on the OS popup, not the translucent field, so it
+   ignores the field surface. Give the options a solid dark ground and light text,
+   or the non-hovered option shows white-on-white until you hover it. */
+.select option {
+  background-color: hsl(201 100% 11%);
+  color: var(--text);
+}
+.select option:checked,
+.select option:hover {
+  background-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
 .row2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  align-items: stretch;
+}
+
+/* When one field in a 2-column row has a hint and the other does not, the hint
+   pushes its box lower. Keep the labels at the top, but pin each control to the
+   bottom of its (equal-height) field so the boxes line up across the row. */
+.row2 > .field > .input,
+.row2 > .field > .select,
+.row2 > .field > .textarea {
+  margin-top: auto;
 }
 
 .row3 {

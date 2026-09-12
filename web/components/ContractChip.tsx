@@ -27,7 +27,7 @@ export function ContractChip() {
     <button
       type="button"
       onClick={copy}
-      className={`liquid-glass ${styles.contractChip}`}
+      className={styles.contractChip}
       title="Copy contract address"
       aria-label={`Contract address: ${DISPLAY}. Click to copy.`}
     >

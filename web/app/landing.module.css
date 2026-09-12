@@ -269,6 +269,14 @@
   font: inherit;
   color: var(--text);
   cursor: pointer;
+  /* darker glass so text pops over the bright background image */
+  background: rgba(8, 12, 22, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  backdrop-filter: blur(12px) saturate(1.1);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.12),
+    0 4px 16px rgba(0, 0, 0, 0.25);
   transition: transform 0.2s ease;
 }
 .contractChip:hover {
@@ -279,12 +287,15 @@
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.72); /* was var(--muted) - too dim over the glow */
+  padding-right: 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
 }
 .contractValue {
   font-family: var(--mono);
   font-size: 13px;
-  color: var(--text);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); /* keeps it legible over the yellow glow */
   max-width: 46vw;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -295,9 +306,9 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--muted-foreground);
+  color: rgba(255, 255, 255, 0.72); /* was var(--muted-foreground) - too dim */
   padding-left: 10px;
-  border-left: 1px solid var(--border);
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 /* ---------- Shared section shell ---------- */
