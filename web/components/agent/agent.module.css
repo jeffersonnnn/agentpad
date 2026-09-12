@@ -107,6 +107,31 @@
   flex-direction: column;
   gap: 6px;
 }
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.logoImg {
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  flex-shrink: 0;
+}
+.logoFallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--accent-weak);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  flex-shrink: 0;
+}
 .tokenName {
   margin: 0;
   font-family: var(--font-display);
@@ -275,6 +300,98 @@
 .marketPrimary:hover {
   transform: translateY(-1px);
   filter: brightness(1.05);
+}
+
+/* Chart card (DexScreener embed) */
+.chartFrame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  min-height: 360px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg-deep);
+}
+.chartFrame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.chartEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+}
+.chartPrice {
+  font-family: var(--font-display);
+  font-size: 30px;
+  letter-spacing: -0.01em;
+}
+
+/* Owner actions: top up + claim */
+.topupRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.topupSelect,
+.topupInput {
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.topupSelect {
+  appearance: none;
+}
+.topupSelect option {
+  background-color: hsl(201 100% 11%);
+  color: var(--text);
+}
+.topupInput {
+  width: 110px;
+}
+.topupBtn,
+.claimBtn {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--bg-deep);
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.topupBtn:disabled,
+.claimBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.claimBtn {
+  margin-top: 4px;
+}
+.topupOk {
+  font-size: 13px;
+  color: var(--pos);
+}
+.topupErr {
+  font-size: 13px;
+  color: var(--neg);
+}
+.ownerClaim {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 4px;
 }
 
 /* Stat rows */

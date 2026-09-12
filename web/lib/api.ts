@@ -39,6 +39,7 @@ export const ENDPOINTS = {
   agentPositions: (id: string) => `/api/agents/${encodeURIComponent(id)}/positions`,
   agentDistributions: (id: string) => `/api/agents/${encodeURIComponent(id)}/distributions`,
   agentClaim: (id: string) => `/api/agents/${encodeURIComponent(id)}/claim`,
+  agentClaimFees: (id: string) => `/api/agents/${encodeURIComponent(id)}/claim-fees`,
   agentXConnect: (id: string) => `/api/agents/${encodeURIComponent(id)}/x-connect`,
   squareLeaderboard: "/api/square/leaderboard",
   squareFeed: "/api/square/feed",
@@ -124,6 +125,34 @@ export function prepareLaunch(input: PrepareLaunchInput): Promise<PrepareLaunchR
 /** Step 4: after the creator broadcasts launchTx, relay (token, curve, txHash) back to go live. */
 export function finalizeLaunch(input: FinalizeLaunchInput): Promise<FinalizeLaunchResult> {
   return request<FinalizeLaunchResult>(ENDPOINTS.finalize, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+// ── Manual fee claim (creator-signed; the server holds DEPLOYER_KEY and runs claimAndRoute) ─────────
+
+/** The exact message the creator signs to authorize a manual fee claim (must match the route). */
+export function claimFeesMessage(agentId: string, issuedIso: string): string {
+  return `Slingshot claim fees\nagent: ${agentId}\nissued: ${issuedIso}`;
+}
+
+export interface ClaimFeesResult {
+  claimed?: boolean; // false when there was nothing to route (with `message`)
+  message?: string;
+  txHash?: string;
+  splitter?: string;
+  agentAmount?: string | null; // USDG base units sent to the agent treasury (80%)
+  platformAmount?: string | null; // USDG base units used to buy-and-burn the platform token (20%)
+  treasury?: string | null;
+}
+
+/** Trigger claimAndRoute for one agent. `message`/`signature` come from the creator's wallet. */
+export function claimAgentFees(
+  id: string,
+  input: { message: string; signature: Hex },
+): Promise<ClaimFeesResult> {
+  return request<ClaimFeesResult>(ENDPOINTS.agentClaimFees(id), {
     method: "POST",
     body: JSON.stringify(input),
   });

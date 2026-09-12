@@ -11,7 +11,9 @@ import { useQuery } from "@tanstack/react-query";
 import { getAgent, getAgentPositions } from "@/lib/api";
 import { ARCHETYPES } from "@/lib/constants";
 import { AgentHeader } from "@/components/agent/AgentHeader";
+import { ChartCard } from "@/components/agent/ChartCard";
 import { MarketCard } from "@/components/agent/MarketCard";
+import { OwnerActions } from "@/components/agent/OwnerActions";
 import { TreasuryPanel } from "@/components/agent/TreasuryPanel";
 import { ReasoningFeed } from "@/components/agent/ReasoningFeed";
 import { TradesPanel } from "@/components/agent/TradesPanel";
@@ -112,12 +114,14 @@ function AgentView({
       <AgentHeader agent={agent} />
       <div className={styles.grid2}>
         <div className={styles.stack}>
+          <ChartCard agent={agent} />
           <ReasoningFeed agentId={agentId} />
           <TradesPanel agentId={agentId} />
         </div>
         <div className={styles.stack}>
           <MarketCard agent={agent} />
           <TreasuryPanel agent={agent} positions={positionsQ.data ?? []} />
+          <OwnerActions agent={agent} />
           <DistributionsPanel agent={agent} config={distribution} />
           <StrategyCard archetype={agent.archetype} persona={agent.persona_prompt} />
           <XConnectPanel agent={agent} />

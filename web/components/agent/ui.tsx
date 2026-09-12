@@ -48,6 +48,52 @@ export function AddressPill({
   );
 }
 
+// The public Pinata gateway is rate-limited and often fails; retry the same CID on other public
+// gateways, then fall back to a monogram tile, so a logo never renders as a broken image.
+function ipfsFallbacks(url: string): string[] {
+  const m = url.match(/\/ipfs\/([A-Za-z0-9]+.*)$/);
+  if (!m) return [url];
+  const cid = m[1];
+  return Array.from(new Set([url, `https://ipfs.io/ipfs/${cid}`, `https://dweb.link/ipfs/${cid}`]));
+}
+
+/** Token logo with graceful gateway fallback, then a lettered monogram tile. */
+export function TokenLogo({
+  src,
+  symbol,
+  size = 44,
+}: {
+  src?: string | null;
+  symbol?: string | null;
+  size?: number;
+}) {
+  const chain = src ? ipfsFallbacks(src) : [];
+  const [idx, setIdx] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const dim = { width: size, height: size } as const;
+  const letter = (symbol || "?").replace(/^\$/, "").charAt(0).toUpperCase() || "?";
+
+  if (!src || failed || idx >= chain.length) {
+    return (
+      <span className={styles.logoFallback} style={dim} aria-hidden>
+        {letter}
+      </span>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={chain[idx]}
+      alt={symbol ? `${symbol} logo` : "token logo"}
+      className={styles.logoImg}
+      style={dim}
+      referrerPolicy="no-referrer"
+      loading="eager"
+      onError={() => (idx < chain.length - 1 ? setIdx((i) => i + 1) : setFailed(true))}
+    />
+  );
+}
+
 /** Full address shown in monospace with a one-click copy button (flashes "Copied"). */
 export function CopyAddress({ addr, label }: { addr?: string | null; label?: string }) {
   const [copied, setCopied] = useState(false);

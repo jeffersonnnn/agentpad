@@ -5,7 +5,7 @@
 
 import type { Agent } from "@/lib/types";
 import { fmtCurvePrice, useCurvePrice, useReadyToGraduate, useTokenMeta } from "./onchain";
-import { AddressPill, ArchetypeChip, relativeTime, Skeleton, StatusBadge, styles } from "./ui";
+import { AddressPill, ArchetypeChip, relativeTime, Skeleton, StatusBadge, TokenLogo, styles } from "./ui";
 
 export function AgentHeader({ agent }: { agent: Agent }) {
   const meta = useTokenMeta(agent.token_addr);
@@ -18,10 +18,13 @@ export function AgentHeader({ agent }: { agent: Agent }) {
   return (
     <header className={styles.header}>
       <div className={styles.headerLeft}>
-        <h1 className={styles.tokenName}>
-          {meta.isLoading && !meta.name ? <Skeleton width={180} height={26} /> : name}
-          {symbol && <span className={styles.ticker}>{symbol}</span>}
-        </h1>
+        <div className={styles.titleRow}>
+          <TokenLogo src={agent.logo_url} symbol={meta.symbol} size={48} />
+          <h1 className={styles.tokenName}>
+            {meta.isLoading && !meta.name ? <Skeleton width={180} height={26} /> : name}
+            {symbol && <span className={styles.ticker}>{symbol}</span>}
+          </h1>
+        </div>
         <div className={styles.subrow}>
           <StatusBadge status={agent.status} />
           <ArchetypeChip slug={agent.archetype} />

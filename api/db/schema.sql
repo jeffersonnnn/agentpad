@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS agents (
   model          text,                         -- LLM model id for the agent brain
   quote_asset    text NOT NULL DEFAULT 'USDG', -- launch/trade quote: 'USDG', 'ETH', or an address
   status         agent_status NOT NULL DEFAULT 'deploying',
+  logo_url       text,                         -- token logo URL (IPFS gateway), shown on the agent page
   created_at     timestamptz NOT NULL DEFAULT now()
 );
 

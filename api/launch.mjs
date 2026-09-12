@@ -307,13 +307,14 @@ export function makePgStore(pool) {
       await pool.query(
         `INSERT INTO agents
            (id, token_addr, curve_addr, splitter_addr, account_addr, creator_addr,
-            archetype, persona_prompt, model, quote_asset, status, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now())
+            archetype, persona_prompt, model, quote_asset, status, logo_url, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())
          ON CONFLICT (id) DO NOTHING`,
         [
           row.id, row.token_addr ?? null, row.curve_addr ?? null, row.splitter_addr ?? null,
           row.account_addr ?? null, row.creator_addr, row.archetype, row.persona_prompt ?? null,
           row.model ?? DEFAULT_MODEL, row.quote_asset ?? "ETH", row.status ?? "deploying",
+          row.logo_url ?? null,
         ]
       );
       return this.getAgent(row.id);
@@ -488,6 +489,7 @@ export async function prepareLaunch(input, deps = {}) {
         model: input.model || process.env.AGENT_MODEL || DEFAULT_MODEL,
         quote_asset: quote,
         status: "deploying",
+        logo_url: input.logo ?? null,
       });
       if (input.distribution) {
         try { await d.db.insertDistributionConfig(id, input.distribution); } catch { /* optional table */ }
@@ -775,6 +777,70 @@ export async function launchStatus(agentId, deps = {}) {
   const d = await resolveDeps(deps);
   try { return await d.db.getAgent(agentId); }
   finally { await closeOwnedPool(d); }
+}
+
+// Manual fee claim (SPEC 1, ADR 0003). Owner-only on-chain: the platform DEPLOYER_KEY (the splitter's
+// owner) calls FeeSplitter.claimAndRoute(), which sweeps the curve's accrued creator fee, claims it from
+// the PONS escrow, converts ETH->USDG, sends 80% to the AGENT TREASURY, and buy-and-burns 20% of the
+// platform token. This is the same routing the keeper runs on a timer; this is the on-demand button so a
+// creator can top the treasury up from accrued fees (e.g. after the agent wallet was drained). Returns
+// the routed amounts + txHash. A revert (nothing accrued to route) surfaces as a clean message.
+const CLAIM_AND_ROUTE_ABI = [
+  {
+    type: "function",
+    name: "claimAndRoute",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [
+      { name: "agentAmount", type: "uint256" },
+      { name: "platformAmount", type: "uint256" },
+    ],
+  },
+];
+
+export async function claimFees({ agentId }, deps = {}) {
+  const d = await resolveDeps(deps);
+  try {
+    const row = await d.db.getAgent(agentId);
+    if (!row) throw new Error("agent not found");
+    if (!row.splitter_addr) throw new Error("this agent has no fee splitter yet");
+    if (!d.walletClient) throw new Error("no DEPLOYER_KEY: the server cannot claim fees");
+    const splitter = getAddress(row.splitter_addr);
+
+    // Simulate first: this reads the routed amounts and turns a "nothing to claim" revert into a clean
+    // message instead of a failed transaction the creator pays gas to discover.
+    let agentAmount = null;
+    let platformAmount = null;
+    try {
+      const sim = await d.publicClient.simulateContract({
+        address: splitter,
+        abi: CLAIM_AND_ROUTE_ABI,
+        functionName: "claimAndRoute",
+        account: d.deployerAccount,
+      });
+      const out = sim.result;
+      if (Array.isArray(out)) {
+        agentAmount = out[0]?.toString?.() ?? null;
+        platformAmount = out[1]?.toString?.() ?? null;
+      }
+    } catch {
+      throw new Error("nothing to claim right now — no accrued fees to route yet");
+    }
+
+    const txHash = await d.walletClient.writeContract({
+      address: splitter,
+      abi: CLAIM_AND_ROUTE_ABI,
+      functionName: "claimAndRoute",
+      account: d.deployerAccount,
+      chain: d.chain,
+    });
+    const rc = await d.publicClient.waitForTransactionReceipt({ hash: txHash });
+    if (rc.status !== "success") throw new Error(`claimAndRoute reverted (${txHash})`);
+
+    return { txHash, splitter, agentAmount, platformAmount, treasury: row.account_addr ?? null };
+  } finally {
+    await closeOwnedPool(d);
+  }
 }
 
 // Default "start the loop": spawn a detached `node agent/loop.mjs` with a FULLY-WIRED env. On a

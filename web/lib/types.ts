@@ -27,6 +27,7 @@ export interface Agent {
   model: string | null;
   quote_asset: QuoteAsset | string;
   status: AgentStatus;
+  logo_url: string | null; // token logo URL (IPFS gateway), captured at launch
   created_at: string; // ISO timestamp
 }
 

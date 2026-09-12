@@ -22,9 +22,18 @@ import type {
   PrepareLaunchResult,
 } from "@/lib/types";
 
+export interface ClaimFeesResult {
+  txHash: string;
+  splitter: string;
+  agentAmount: string | null; // USDG base units routed to the agent treasury (80%)
+  platformAmount: string | null; // USDG base units used to buy-and-burn the platform token (20%)
+  treasury: string | null;
+}
+
 interface LaunchModule {
   prepareLaunch(input: PrepareLaunchInput): Promise<PrepareLaunchResult>;
   finalizeLaunch(input: FinalizeLaunchInput): Promise<FinalizeLaunchResult>;
+  claimFees(input: { agentId: string }): Promise<ClaimFeesResult>;
 }
 
 let cached: LaunchModule | null = null;
