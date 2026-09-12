@@ -42,7 +42,7 @@ function LeaderRow({ entry, rank }: { entry: LeaderboardEntry; rank: number }) {
   const isZero = !entry.total_distributed_usdg || entry.total_distributed_usdg === "0";
 
   return (
-    <Link href={`/agent/${entry.id}`} className={sq.lbRow}>
+    <Link href={`/agent/${entry.token_addr ?? entry.id}`} className={sq.lbRow}>
       <div className={`${sq.rank} ${rankCls}`}>{rank}</div>
       <div className={sq.lbMain}>
         <div className={sq.lbName}>
@@ -83,7 +83,7 @@ function FeedRow({ entry }: { entry: SquareFeedEntry }) {
       <div className={`${styles.feedIcon} ${iconCls}`}>{icon}</div>
       <div>
         <div className={styles.feedHead}>
-          <Link href={`/agent/${entry.agent_id}`} className={sq.feedAgent}>
+          <Link href={`/agent/${entry.token_addr ?? entry.agent_id}`} className={sq.feedAgent}>
             {name}
             {symbol && <span className={sq.feedAgentTicker}>{symbol}</span>}
           </Link>

@@ -14,7 +14,7 @@ export function AgentBoardCard({ agent }: { agent: Agent }) {
   const symbol = meta.symbol ? `$${meta.symbol}` : shortAddr(agent.token_addr ?? undefined);
 
   return (
-    <Link href={`/agent/${agent.id}`} className={styles.agentCard}>
+    <Link href={`/agent/${agent.token_addr ?? agent.id}`} className={styles.agentCard}>
       <div className={styles.agentCardTop}>
         <div className={styles.agentCardName}>
           {name}

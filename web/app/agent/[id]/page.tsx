@@ -89,7 +89,8 @@ export default function AgentPage() {
             </div>
           </ErrorNote>
         ) : q.data ? (
-          <AgentView agentId={id as string} data={q.data} />
+          // Sub-resources key off the real UUID (data.agent.id), so the URL can be the token address.
+          <AgentView agentId={q.data.agent.id} data={q.data} />
         ) : null}
       </div>
     </div>

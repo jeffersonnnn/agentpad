@@ -7,6 +7,7 @@
 // (the server never signs, ADR 0003 / SPEC.md section 8).
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@/components/ConnectButton";
 import { Field, ImageUpload, Select, TextArea, TextInput } from "./fields";
@@ -104,6 +105,7 @@ const PERSONA_TEMPLATES: Record<ArchetypeSlug, string[]> = {
 };
 
 export function CreateAgentForm() {
+  const router = useRouter();
   const { isConnected, chainId } = useAccount();
   const { launch, reset, progress, outcome, error, errorRef, busy } = useLaunchFlow();
   const [form, setForm] = useState<FormState>(INITIAL);
@@ -142,7 +144,12 @@ export function CreateAgentForm() {
     if (hasErrors || busy || done) return;
 
     const input = shapeInput(form);
-    await launch({ input, developerBuy: form.developerBuy, quote: form.quote });
+    const result = await launch({ input, developerBuy: form.developerBuy, quote: form.quote });
+    // On success, go straight to the coin page (keyed by the token contract address). The agent page
+    // now holds everything (chart, trade, market, treasury), so there is no separate success screen.
+    if (result?.tokenAddr) {
+      router.push(`/agent/${result.tokenAddr}`);
+    }
   }
 
   // Only surface a field error once the creator has tried to submit (or left the field), so the form
@@ -465,7 +472,7 @@ function LaunchSuccess({ outcome, onReset }: { outcome: LaunchOutcome; onReset: 
         <p className={styles.note}>The agent launched, but the developer buy did not go through: {outcome.devBuyError}</p>
       ) : null}
       <div className={styles.successActions}>
-        <a className={styles.launchButton} href={`/agent/${encodeURIComponent(outcome.agentId)}`}>View the agent page</a>
+        <a className={styles.launchButton} href={`/agent/${encodeURIComponent(outcome.tokenAddr || outcome.agentId)}`}>View the coin page</a>
         <button type="button" className={styles.retryButton} onClick={onReset}>Launch another</button>
       </div>
     </div>
