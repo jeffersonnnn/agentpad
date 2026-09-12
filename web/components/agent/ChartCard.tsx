@@ -1,14 +1,13 @@
 "use client";
 
-// Price chart for the agent token. Robinhood Chain is indexed by DexScreener (chainId "robinhood"), so
-// once the token has a Uniswap market we embed DexScreener's candlestick chart for its pair. While the
-// token is still on the PONS bonding curve (pre-graduation) there is no pool yet, so we show the curve
-// spot price and link to the PONS launchpad page, which charts the curve from its first trade.
+// Price chart for the agent token, hosted ON Slingshot.
+//   - Pre-graduation (PONS bonding curve): our own sampled area chart (PriceChart) — no PONS redirect.
+//   - Post-graduation (Uniswap market): embed DexScreener's candlestick chart for the pair.
+// The token's market is resolved via /api/market/pair (DexScreener indexes Robinhood Chain).
 
 import { useQuery } from "@tanstack/react-query";
 import type { Agent } from "@/lib/types";
-import { ponsLaunchpadUrl } from "@/lib/constants";
-import { fmtCurvePrice, useCurvePrice } from "./onchain";
+import { PriceChart } from "./PriceChart";
 import { Card, styles } from "./ui";
 
 interface PairInfo {
@@ -27,7 +26,6 @@ async function fetchPair(token: string): Promise<PairInfo | null> {
 
 export function ChartCard({ agent }: { agent: Agent }) {
   const token = agent.token_addr;
-  const price = useCurvePrice(agent.curve_addr, agent.quote_asset);
 
   const q = useQuery({
     queryKey: ["market-pair", token],
@@ -52,44 +50,16 @@ export function ChartCard({ agent }: { agent: Agent }) {
     return (
       <Card title="Chart">
         <div className={styles.chartFrame}>
-          <iframe
-            src={embed}
-            title="DexScreener price chart"
-            loading="lazy"
-            allow="clipboard-write"
-          />
+          <iframe src={embed} title="DexScreener price chart" loading="lazy" allow="clipboard-write" />
         </div>
-        <p className={styles.muted}>
-          Live chart via DexScreener.{" "}
-          <a className={styles.addr} href={pair.url} target="_blank" rel="noreferrer">
-            Open full chart ↗
-          </a>
-        </p>
       </Card>
     );
   }
 
-  // No Uniswap pair yet — still on the PONS curve. Show the curve spot price + the PONS chart link.
+  // Still on the PONS curve — draw our own sampled chart, no redirect off-site.
   return (
     <Card title="Chart">
-      <div className={styles.chartEmpty}>
-        <div className={styles.chartPrice}>
-          {price.pricePerToken !== null ? fmtCurvePrice(price.pricePerToken, price.quoteSymbol) : "—"}
-        </div>
-        <p className={styles.muted}>
-          {q.isLoading
-            ? "Loading market…"
-            : "This token trades on the PONS bonding curve. A full candlestick chart appears here once it graduates to a Uniswap market."}
-        </p>
-        <a
-          className={styles.marketPrimary}
-          href={ponsLaunchpadUrl(token)}
-          target="_blank"
-          rel="noreferrer"
-        >
-          View the live curve chart on PONS ↗
-        </a>
-      </div>
+      <PriceChart agentId={agent.id} curve={agent.curve_addr} quote={agent.quote_asset} />
     </Card>
   );
 }

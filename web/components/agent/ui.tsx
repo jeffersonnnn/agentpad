@@ -94,7 +94,7 @@ export function TokenLogo({
   );
 }
 
-/** Full address shown in monospace with a one-click copy button (flashes "Copied"). */
+/** Shortened address chip with a one-click copy (copies the FULL address; flashes "Copied") + Explorer. */
 export function CopyAddress({ addr, label }: { addr?: string | null; label?: string }) {
   const [copied, setCopied] = useState(false);
   if (!addr) return <span className={styles.muted}>—</span>;
@@ -111,9 +111,9 @@ export function CopyAddress({ addr, label }: { addr?: string | null; label?: str
     <span className={styles.copyRow}>
       {label ? <span className={styles.copyLabel}>{label}</span> : null}
       <code className={styles.copyValue} title={addr}>
-        {addr}
+        {shortAddr(addr)}
       </code>
-      <button type="button" className={styles.copyBtn} onClick={copy} aria-label="Copy address">
+      <button type="button" className={styles.copyBtn} onClick={copy} aria-label="Copy full address">
         {copied ? "Copied" : "Copy"}
       </button>
       <a className={styles.copyBtn} href={addrUrl(addr)} target="_blank" rel="noreferrer">

@@ -253,10 +253,7 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px 8px;
-  overflow-wrap: anywhere;
-  word-break: break-all;
-  flex: 1 1 220px;
-  min-width: 0;
+  white-space: nowrap;
 }
 .copyBtn {
   font-size: 11px;
@@ -331,6 +328,128 @@
   font-family: var(--font-display);
   font-size: 30px;
   letter-spacing: -0.01em;
+}
+
+/* Native (sampled) area chart */
+.chartNative {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.chartHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.chartUp {
+  color: var(--pos);
+  font-size: 13px;
+  font-weight: 600;
+}
+.chartDown {
+  color: var(--neg);
+  font-size: 13px;
+  font-weight: 600;
+}
+.chartSvg {
+  width: 100%;
+  height: 220px;
+  display: block;
+}
+.chartCollecting {
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 0 16px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+
+/* Trade widget */
+.tradeTabs {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 14px;
+}
+.tradeTab,
+.tradeTabActive {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 7px;
+  padding: 7px 22px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--muted);
+}
+.tradeTabActive {
+  background: var(--accent);
+  color: var(--bg-deep);
+}
+.tradeLabel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.tradeBal {
+  font-size: 12px;
+}
+.tradeInput {
+  width: 100%;
+  font: inherit;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.tradeInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.tradeMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 0 14px;
+  font-size: 13px;
+}
+.tradeBtn {
+  width: 100%;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bg-deep);
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  padding: 13px 16px;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.tradeBtn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.tradeBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* Owner actions: top up + claim */

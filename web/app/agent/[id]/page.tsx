@@ -14,6 +14,7 @@ import { AgentHeader } from "@/components/agent/AgentHeader";
 import { ChartCard } from "@/components/agent/ChartCard";
 import { MarketCard } from "@/components/agent/MarketCard";
 import { OwnerActions } from "@/components/agent/OwnerActions";
+import { TradePanel } from "@/components/agent/TradePanel";
 import { TreasuryPanel } from "@/components/agent/TreasuryPanel";
 import { ReasoningFeed } from "@/components/agent/ReasoningFeed";
 import { TradesPanel } from "@/components/agent/TradesPanel";
@@ -119,6 +120,7 @@ function AgentView({
           <TradesPanel agentId={agentId} />
         </div>
         <div className={styles.stack}>
+          <TradePanel agent={agent} />
           <MarketCard agent={agent} />
           <TreasuryPanel agent={agent} positions={positionsQ.data ?? []} />
           <OwnerActions agent={agent} />

@@ -6,11 +6,9 @@
 // canonical chart; we surface the key numbers here and hand off the chart there.
 
 import type { Agent } from "@/lib/types";
-import { ponsLaunchpadUrl } from "@/lib/constants";
 import {
   fmtCurvePrice,
   useCurvePrice,
-  useReadyToGraduate,
   useTokenMeta,
   useTokenSupply,
 } from "./onchain";
@@ -36,9 +34,7 @@ export function MarketCard({ agent }: { agent: Agent }) {
   const meta = useTokenMeta(agent.token_addr);
   const price = useCurvePrice(agent.curve_addr, agent.quote_asset);
   const supplyQ = useTokenSupply(agent.token_addr, meta.decimals);
-  const graduated = useReadyToGraduate(agent.curve_addr);
 
-  const symbol = meta.symbol ? `$${meta.symbol}` : "the token";
   const fdv =
     price.pricePerToken !== null && supplyQ.supply !== null
       ? price.pricePerToken * supplyQ.supply
@@ -74,22 +70,6 @@ export function MarketCard({ agent }: { agent: Agent }) {
         {supplyQ.isLoading ? <Skeleton width={90} height={16} /> : fmtSupply(supplyQ.supply)}
       </StatRow>
       <StatRow label="Paired in">{String(agent.quote_asset || "").toUpperCase() || "—"}</StatRow>
-
-      <div className={styles.marketActions}>
-        <a
-          className={styles.marketPrimary}
-          href={ponsLaunchpadUrl(agent.token_addr)}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Trade &amp; chart on PONS ↗
-        </a>
-      </div>
-      <p className={styles.muted}>
-        {graduated
-          ? `${symbol} has graduated - trade it on the PONS launchpad page.`
-          : `Buy or sell ${symbol} and view the live chart on its PONS launchpad page.`}
-      </p>
     </Card>
   );
 }
