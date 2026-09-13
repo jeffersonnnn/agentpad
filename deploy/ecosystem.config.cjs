@@ -22,16 +22,18 @@ module.exports = {
       max_memory_restart: "700M",
     },
     {
-      // The autonomous Powell trading loop (self-bundles via handleOps). Loops on AGENT_LOOP_INTERVAL.
-      // Comment this app out to deploy the site WITHOUT the live money loop.
-      name: "agentpad-powell",
+      // The reasoner: one reasoning pass for EVERY live agent per run (deploy/reason-all.mjs). Reads the
+      // agent list fresh from the DB, so new launches are picked up automatically; reason-only when an
+      // agent has no session key, trading when it does. Scheduled by cron. This replaces the fragile
+      // per-launch loop spawn (finalize sets AGENTPAD_START_LOOP=0). Adjust cadence to taste / cost.
+      name: "agentpad-reasoner",
       cwd: REPO,
-      script: path.join(REPO, "deploy", "start-powell.mjs"),
+      script: "deploy/reason-all.mjs",
       interpreter: "node",
       interpreter_args: "--env-file=.env",
-      autorestart: true,
-      max_restarts: 20,
-      restart_delay: 10000,
+      autorestart: false,
+      cron_restart: "*/3 * * * *",
+      env: { NODE_ENV: "production" },
     },
     {
       // The keeper: sweeps creator fees (80/20 route) and runs distribution epochs. One pass per run,
