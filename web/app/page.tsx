@@ -102,6 +102,9 @@ export default function HomePage() {
               <Link href="/square" className={styles.navLink}>
                 The Square
               </Link>
+              <Link href="/portfolio" className={styles.navLink}>
+                Portfolio
+              </Link>
               <Link href="/create" className={styles.navLink}>
                 Launch
               </Link>
