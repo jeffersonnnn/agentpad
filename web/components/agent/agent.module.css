@@ -299,6 +299,185 @@
   filter: brightness(1.05);
 }
 
+/* ── Reasoning terminal (classic macOS terminal window) ─────────────────────────────────────────── */
+.terminal {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  background: #0b0f17;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+.termBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: linear-gradient(#3a3f4b, #2c313c);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+}
+.termDots {
+  display: inline-flex;
+  gap: 7px;
+  flex-shrink: 0;
+}
+.dotRed,
+.dotYellow,
+.dotGreen {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dotRed {
+  background: #ff5f56;
+  border: 1px solid #e0443e;
+}
+.dotYellow {
+  background: #ffbd2e;
+  border: 1px solid #dea123;
+}
+.dotGreen {
+  background: #27c93f;
+  border: 1px solid #1aab29;
+}
+.termTitle {
+  flex: 1;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.termTabs {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.termTab,
+.termTabActive {
+  font-family: var(--mono);
+  font-size: 11px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  padding: 3px 7px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.termTabActive {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.termBody {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #d6dde8;
+  background: #0b0f17;
+  padding: 14px 16px;
+  max-height: 460px;
+  overflow-y: auto;
+}
+.tLine {
+  margin-bottom: 12px;
+}
+.tCmd {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tPrompt {
+  color: #56d364; /* green user@host */
+}
+.tSep {
+  color: #7d8590;
+}
+.tPath {
+  color: #6cb6ff; /* blue path */
+}
+.tDollar {
+  color: #7d8590;
+}
+.tVerb {
+  color: #e3b341; /* command verb */
+  font-weight: 600;
+}
+.tVerb.trade {
+  color: #6cb6ff;
+}
+.tVerb.distribution {
+  color: #d2a8ff;
+}
+.tVerb.reaction {
+  color: #ff9bce;
+}
+.tTime {
+  color: #57606a;
+}
+.tTx {
+  color: #6cb6ff;
+  text-decoration: none;
+}
+.tTx:hover {
+  text-decoration: underline;
+}
+.tOut {
+  color: #d6dde8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-left: 2px;
+  margin-top: 2px;
+}
+.tTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.tTag {
+  font-size: 11px;
+  color: #8b949e;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.tSystem {
+  color: #8b949e;
+}
+.tDim {
+  color: #57606a;
+}
+.tError {
+  color: #ff7b72;
+}
+.tCursorLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.tCursor {
+  width: 8px;
+  height: 15px;
+  background: #d6dde8;
+  display: inline-block;
+  animation: termBlink 1.1s steps(1) infinite;
+}
+@keyframes termBlink {
+  50% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tCursor {
+    animation: none;
+  }
+}
+
 /* Chart card (DexScreener embed) */
 .chartFrame {
   position: relative;
