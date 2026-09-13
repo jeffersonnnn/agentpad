@@ -21,6 +21,11 @@ export const PONS_FACTORY: Address = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e
 export const FEE_ESCROW: Address = "0xd3AFEB2a57f70eF218Aa82451c51B2fb0416Ac9e";
 export const USDG: Address = "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"; // 6 dec, base/payout currency
 export const USDG_DECIMALS = 6 as const;
+
+// The Slingshot platform token ($SlingShot). Fee splitters buy-and-burn 20% of each fee round into it
+// (once setPlatformToken is wired). Shown in the hero "Contract" chip. NEXT_PUBLIC_CONTRACT_ADDRESS
+// overrides it if set at build time.
+export const PLATFORM_TOKEN: Address = "0xfc08fcdf0472d5cf97382fbd527cf50399e2626a";
 export const LAUNCH_FEE_WEI = 500000000000000n; // 0.0005 ETH — the launch tx carries exactly this, no markup
 
 // ── Quote / paired asset (SPEC.md section 5) ──────────────────────────────────────────────────────

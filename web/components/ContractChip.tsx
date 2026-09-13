@@ -6,8 +6,9 @@
 
 import { useState } from "react";
 import styles from "@/app/landing.module.css";
+import { PLATFORM_TOKEN } from "@/lib/constants";
 
-const CONTRACT = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS?.trim() || "";
+const CONTRACT = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS?.trim() || PLATFORM_TOKEN || "").trim();
 const DISPLAY = CONTRACT || "coming soon";
 
 export function ContractChip() {
