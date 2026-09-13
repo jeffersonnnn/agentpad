@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { loadRepoRootEnv } from "@/lib/server/env";
 import { listEvents, reportEvent, type ObservatoryLevel } from "@/lib/server/observatory";
+import { isExtensionNoise } from "@/lib/observatory-noise";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,6 +71,13 @@ export async function POST(req: Request) {
   const level: ObservatoryLevel = LEVELS.includes(body.level as ObservatoryLevel)
     ? (body.level as ObservatoryLevel)
     : "error";
+
+  // Backstop the flood at the server too: an OLD client bundle already running in a user's browser will
+  // keep POSTing wallet-extension noise until they reload, so the only way to protect the table now is
+  // to drop it here. Return 200 (ignored) so the client does not treat it as an error and retry.
+  if (isExtensionNoise(scope, message, body.detail)) {
+    return NextResponse.json({ ref: null, ignored: true });
+  }
 
   const ref = await reportEvent(scope, message, {
     source: "client",

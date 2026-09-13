@@ -5,6 +5,8 @@
 // developer alongside the server-reported ones. Best-effort and silent: reporting a failure must never
 // throw into the UI, and a failed report is swallowed.
 
+import { isExtensionNoise } from "./observatory-noise";
+
 export interface ClientReport {
   scope: string;
   message: string;
@@ -49,6 +51,24 @@ export function describeError(e: unknown): { message: string; detail: Record<str
 
 let installed = false;
 
+// Guard the GLOBAL uncaught-error handlers (not the explicit launch/agent reports, which always send)
+// against the flood a bad browser-extension tab can produce: drop extension noise, dedupe identical
+// signatures, and hard-cap the total per page session. Without this one wallet-injection loop wrote
+// ~12k rows and buried the real errors.
+const SEEN = new Set<string>();
+let sentCount = 0;
+const SESSION_CAP = 25;
+
+function reportUncaught(scope: string, message: string, detail: Record<string, unknown>): void {
+  if (isExtensionNoise(scope, message, detail)) return; // wallet-extension noise, not our bug
+  const sig = `${scope}|${message.slice(0, 200)}`;
+  if (SEEN.has(sig)) return; // already reported this exact error this session
+  if (sentCount >= SESSION_CAP) return; // a storm past the cap is dropped; the first 25 tell the story
+  SEEN.add(sig);
+  sentCount++;
+  void reportClient({ scope, message, detail });
+}
+
 /** Install global handlers so uncaught client errors also reach the Observatory. Idempotent. */
 export function installGlobalObservatory(): void {
   if (installed || typeof window === "undefined") return;
@@ -56,20 +76,16 @@ export function installGlobalObservatory(): void {
 
   window.addEventListener("error", (ev) => {
     const msg = ev.message || (ev.error instanceof Error ? ev.error.message : "window.onerror");
-    void reportClient({
-      scope: "client.window.error",
-      message: msg,
-      detail: {
-        source: ev.filename,
-        line: ev.lineno,
-        col: ev.colno,
-        stack: ev.error instanceof Error ? ev.error.stack : undefined,
-      },
+    reportUncaught("client.window.error", msg, {
+      source: ev.filename,
+      line: ev.lineno,
+      col: ev.colno,
+      stack: ev.error instanceof Error ? ev.error.stack : undefined,
     });
   });
 
   window.addEventListener("unhandledrejection", (ev) => {
     const { message, detail } = describeError(ev.reason);
-    void reportClient({ scope: "client.unhandledrejection", message, detail });
+    reportUncaught("client.unhandledrejection", message, detail);
   });
 }
