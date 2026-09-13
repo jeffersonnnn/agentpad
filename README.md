@@ -14,76 +14,162 @@ its treasury.
 
 ---
 
-## ✅ WHERE WE ARE — LIVE IN PRODUCTION (2026-09-12)
+## ✅ WHERE WE ARE - SOURCE OF TRUTH (2026-09-13)
 
-The full platform is **live in production** at **https://slingshotprotocol.online**. Read this section
-first to continue from the current state.
+The full platform is **live in production** at **https://slingshotprotocol.online**, now on a
+**DigitalOcean droplet**. Read this section first to continue from the current state. It supersedes any
+older status. No em dashes anywhere in this repo's prose (project rule).
 
-### What is live right now
-- **Public site (HTTPS):** https://slingshotprotocol.online (+ www), Let's Encrypt cert with auto-renew,
-  HTTP→HTTPS redirect. The redesigned cinematic site (landing / board / Square / agent / create) is served.
-- **The whole platform runs on a VPS** under pm2 (survives reboot):
-  - `agentpad-web` — the Next.js app + its API routes (internal port 3010, behind nginx).
-  - `agentpad-powell` — the autonomous Powell trading loop (self-bundles userOps via `handleOps`,
-    relayer = deployer). It ran its first mainnet pass in production and correctly held (tiny book).
-  - `agentpad-keeper` — fee sweep + distribution epochs, on a cron every 15 min.
-- **Flagship agent "Powell" is live and narrating on mainnet** (agent id `ef0bef8f-0829-46c8-bcdc-f8f036f4663a`).
-  The board shows it, the agent page renders its real reasoning feed + ERC-4337 treasury, the Square ranks it #1.
+### Infrastructure (moved Hostinger -> DigitalOcean on 2026-09-13)
+- The old Hostinger VPS (`72.62.4.238`) **expired and was suspended** by the host. We migrated to a
+  **DigitalOcean droplet** and re-pointed DNS. Hostinger is dead; do not use it.
+- **Droplet:** name `slingshot`, **IP `167.99.147.119`**, NYC1, Ubuntu 24.04, 2 vCPU / 2 GB + 2 GB swap
+  (the swap fixed the Next build OOM that plagued the 2 GB Hostinger box). Node 22, pm2, nginx, certbot.
+- **SSH:** key-based as `root@167.99.147.119` with the laptop key `~/.ssh/id_ed25519` (added to DO).
+- **Repo on the box:** `/opt/agentpad`, cloned via a read-only GitHub deploy key (`slingshot-droplet-nyc`).
+  `git config core.sshCommand` uses `/root/.ssh/agentpad_deploy`, so `git pull` just works.
+- **HTTPS:** nginx reverse proxy (80/443 -> `127.0.0.1:3000`), Let's Encrypt cert for
+  `slingshotprotocol.online` + `www` (valid ~Dec 12, auto-renew), HTTP->HTTPS redirect. ufw allows SSH + Nginx.
+- **DNS (Namecheap):** A records `@` and `www` -> `167.99.147.119`.
+- **Deploy flow:** `ssh root@167.99.147.119` -> `cd /opt/agentpad && git pull` -> `cd web && npm run build`
+  -> `pm2 reload agentpad-web`. Backend/agent code (`api/`, `deploy/`, `agent/`) is loaded natively (not
+  bundled into web), so a `git pull` alone updates the crons on their next fire; no web rebuild needed for them.
 
-### The VPS (Hostinger)
-- Host: `srv1913110.hstgr.cloud` / **`72.62.4.238`**, Ubuntu 24.04, Node 22. SSH is key-based from the
-  build laptop (no password). It is a **shared box** also running other projects (`chorus`, `dcr`,
-  `peptidelog`, `mynt`); Slingshot is isolated (its own nginx block + port 3010, other sites untouched).
-- Repo on the box: `/opt/agentpad` (cloned via a read-only GitHub deploy key `srv1913110-vps`).
-- Deploy/runbook: [`docs/DEPLOY.md`](docs/DEPLOY.md). pm2 config: `deploy/ecosystem.config.cjs`
-  (web port overridable via `AGENTPAD_WEB_PORT`). Loop entry: `deploy/start-powell.mjs`.
-- **Update flow:** `git pull` on the box → `cd web && npm run build` → `pm2 reload agentpad-web`
-  (+ `pm2 restart agentpad-powell agentpad-keeper` when their code changes).
+### The pm2 process model (all saved, survive reboot)
+| App | Job |
+|-----|-----|
+| `agentpad-web` | Next.js app + same-origin API routes, port 3000 behind nginx |
+| `agentpad-reasoner` | cron `*/3 * * * *`: `deploy/reason-all.mjs` runs ONE reasoning pass for every live agent, read fresh from the DB. Reason-only if the agent has no session key; **trade mode** if it does. |
+| `agentpad-grant` | cron `*/5 * * * *`: `deploy/grant-ready.mjs` installs a scoped session key for any live, **funded** agent that lacks one (re-grants before the 24h TTL). |
+| `agentpad-keeper` | cron `*/15 * * * *`: `api/keeper.mjs --once` sweeps creator fees (`claimAndRoute`, 80% USDG to the treasury, 20% buy-and-burn the platform token) and runs distribution epochs per each agent's policy. |
+| ~~agentpad-powell~~ | REMOVED. The old single-agent loop is replaced by the reasoner. |
 
-### GitHub
-- Repo: **https://github.com/jeffersonnnn/agentpad** (private; account `jeffersonnnn`).
-- Push over HTTPS with the `gh` credential helper (SSH alias for that account was not authorized).
-- Secrets are gitignored and were placed on the box by hand: repo-root `.env`, `web/.env.local`,
-  `agent/.secrets/` (the granted session key). None are in git.
+### The autonomous engine (this now works end to end)
+A user-launched agent becomes self-driving with no manual per-agent steps:
+1. **Launch** (creator signs). The launch flow also **auto-sends ~0.003 ETH gas** from the creator to the
+   agent's ERC-4337 account (`useLaunchFlow` `funding-gas` step), and lands the creator on the coin page.
+2. **Grant** (`agentpad-grant`, <=5 min later). Because the account has gas, it installs a scoped session
+   key. FIX shipped: deploy the account with the OWNER (sudo) validator first via `sendOwnerCall`, THEN
+   `grantSession({deploy:false})` (granting with the combined sudo+session validator reverts AA23). The
+   on-chain submit self-bundles via `EntryPoint.handleOps`, relayer = `DEPLOYER_KEY` (default set in
+   `grantAgentSession`).
+3. **Reason / trade** (`agentpad-reasoner`, every 3 min). The agent reads chain/market MCP tools, calls
+   OpenRouter, writes thoughts, and (with a key) trades the curve. All reasoning is via **our
+   `OPENROUTER_KEY`** -> `openrouter.ai/api/v1`, default model `anthropic/claude-sonnet-5`. No direct
+   Anthropic/OpenAI path.
+4. **Distribute** (`agentpad-keeper`). Fees -> USDG treasury; realized gains -> holders per the configured
+   policy/cadence.
+- **Verified on-chain 2026-09-13:** the test macro agent was funded, `agentpad-grant` deployed its account
+  and granted its key, and the reasoner ran it in trade mode (it correctly HELD on stale/off-hours feeds).
+  A real BUY has not fired yet (needs fresh, in-hours prices); the deploy + grant + trade-mode path is proven.
 
-### Branding + site changes since the mainnet proof
-- **Rebranded AgentPad → Slingshot** across every user-facing and wallet-facing string (nav/footer
-  wordmarks, page titles, landing copy, Coinbase Wallet appName, the X-connect signed message). Internal
-  names stay `agentpad` (GitHub repo, `/opt/agentpad`, pm2 app names, package names) — cosmetic only.
-- **Full cinematic redesign of `web/`** (deep-navy theme, Instrument Serif + Inter, fullscreen video hero,
-  liquid-glass surfaces, scroll-reveal). Applied to landing, board, Square, agent, create.
-- **Hero contract chip:** a copyable "Contract · coming soon" pill on the landing hero. Set
-  `NEXT_PUBLIC_CONTRACT_ADDRESS` (in `web/.env.local`) to reveal the real token address, no code change.
-- **Favicon:** the Slingshot "S" shooting-star mark, from the logo. App Router files in `web/app/`:
-  `favicon.ico` (16/32/48), `icon.png` (512), `apple-icon.png` (180). Auto-linked by Next.
-- **Launch video:** a 60s cinematic brag video built with the `/brag` skill (Hyperframes) lives in
-  `brag-output/` (gitignored, local only): `brag.mp4` + poster `brag.jpg` + `share-copy.txt`. The music
-  is a placeholder to be swapped for dark synth.
+### Web features shipped this session (all live)
+- **Cinematic redesign** (navy + Instrument Serif + Inter, liquid-glass, scroll-reveal) across landing /
+  board / Square / agent / create. Both hero CTAs are solid white now.
+- **Agent (coin) page is the hub** - "everything happens here", no PONS redirects:
+  - **Native price chart** for the curve phase (sampled into a self-creating `price_points` table by
+    `GET /api/agents/:id/prices` on each read; dependency-free SVG area chart). Post-graduation it embeds
+    the **DexScreener** candlestick chart (`/api/market/pair` resolves the token's Robinhood-Chain pair).
+  - **Native buy/sell** trade widget against the PONS curve (ETH/USDG), approve handling, 5% min-out floor
+    (`TradePanel`).
+  - **Market card** (copyable contract, price, FDV, supply), **Fund & manage** (top up ETH/USDG; creator
+    **Claim fees** = creator-signed `claimAndRoute` via the deployer), **token logo** (IPFS-gateway
+    fallback), and the **reasoning feed styled as a macOS terminal**.
+- **Address-based agent URLs:** `/agent/<tokenAddress>` (UUID still resolves). Board / Square / launch all
+  link by contract address.
+- **My Agents portfolio** (`/portfolio`, in the nav): the connected wallet's holdings across agents, each
+  agent's treasury, the holder's share, and profit paid to holders (estimates). Precise per-epoch
+  claimed-vs-pending + a claim button is the planned follow-up (roadmap #2).
+- **X (Twitter) connect:** the agent can post its trades to its own handle (opt-in, creator-funded). The
+  `post_to_x` request path is verified in **dry-run**; a real live tweet is pending real X API keys.
+- **Observatory:** a Neon-backed error sink. `reportError`/`reportEvent` never throw into requests;
+  `GET /api/observatory?token=<OBSERVATORY_TOKEN>` reads recent errors; the browser POSTs client errors.
+  Wired into prepare/finalize/upload + the launch flow (returns a reference id on failure).
+- **Create form:** rotating persona suggestions, hidden raw IPFS URL after upload, aligned fields,
+  fixed dropdown contrast, non-sticky launch bar.
 
-### Live mainnet handles (unchanged; the mechanism is settled and proven)
-| Contract | Address |
-|----------|---------|
-| Token (Powell) | `0x7fC8685c01b5E9Fa082c5c45fd28901636ab66d8` |
-| Bonding curve | `0x57e0Fe2Db5c608BCF3938Dd53CC74ce5D7ae7d4d` |
-| Fee splitter | `0x3b2F90e211C20008202b245A75Be3Bc98bfe62b8` |
-| Distributor | `0x6943249efC47C9357B609B78eE9757cD00730981` |
-| Agent account | `0x0aD19cc8E39Cf569B42CC393B40ceAC1eCa0f913` |
-| Deployer / owner | `0x04752Da4639a436416a94c436526aF34D7fbC61c` |
+### Backend / agent code added this session
+- `api/launch.mjs`: `grantAgentSession({agentId})` (owner-derivation match + AA23 fix + handleOps relayer),
+  `claimFees({agentId})`; the FeeSplitter/Distributor loaders fall back to committed `deploy/artifacts/`
+  when Foundry `out/` is absent (the launch blocker fix). New `agents.logo_url` column.
+- `deploy/reason-all.mjs` (reasoner cron), `deploy/grant-ready.mjs` (grant cron), updated
+  `deploy/ecosystem.config.cjs`.
+- Session keys live in `agent/.secrets/session-<agentId>.json` (gitignored). `AGENTPAD_START_LOOP=0` on the
+  box disables the old fragile per-launch spawn; the reasoner owns reasoning.
 
-### Open items to continue from (in priority order)
-1. **Rotate `DEPLOYER_KEY` (security).** This fund-controlling, contract-owning key now sits on a shared
-   VPS to run the loop + keeper. Treat it as exposed: rotate it, and/or move the money processes to a
-   dedicated host or a secrets manager. This is the standing key-management gate.
-2. **Organic (non-seeded) distribution.** Move the keeper to a **paid RPC tier** or set a bounded
-   `KEEPER_LOG_FROM_BLOCK` (free tier caps `eth_getLogs` at 10 blocks), then let real trading profit
-   accrue for a genuine payout above the high-water mark.
-3. **Set the real contract address** in `NEXT_PUBLIC_CONTRACT_ADDRESS` when public (flips the hero chip).
-4. **Platform token (Milestone 0):** launch it last; set `PLATFORM_TOKEN` + `PLATFORM_CURVE`; re-run the
-   20% buy-and-burn against the real curve; resolve the post-graduation v4 buy path.
-5. **Standing hard gates:** security audit (the fee splitter especially), key-management review, legal
-   review (ADR 0001/0002/0003). Legal is being drafted.
-6. **Optional polish:** swap the video music for dark synth and re-render; cut a 9:16 / 20s teaser;
-   encrypt per-agent X keys in the DB before a multi-agent VPS.
+### Platform token ($SlingShot) - wired
+- Token **`0xfc08fcdf0472d5cf97382fbd527cf50399e2626a`** (name "SlingShot Protocol", symbol "SlingShot",
+  1B supply), on PONS curve **`0xA29f5F68dcA8C70FEFdDE248705d74093f2dA0e9`**.
+- Hero "Contract" chip shows it (committed `PLATFORM_TOKEN` constant; `NEXT_PUBLIC_CONTRACT_ADDRESS` overrides).
+- Buy-and-burn wired: `setPlatformToken` called on the existing fee splitters; `PLATFORM_TOKEN` +
+  `PLATFORM_CURVE` are in the droplet `.env`, so **new** splitters auto-wire at construction.
+
+### Current on-chain state (2026-09-13)
+- **Clean slate:** all prior agents were deleted (DB + related tables) for a fresh test batch. The old
+  flagship Powell (`ef0bef8f`) and its old mainnet handles are GONE.
+- **Deployer / owner:** `0x04752Da4639a436416a94c436526aF34D7fbC61c` (`DEPLOYER_KEY`, repo-root `.env`).
+- **Platform token / curve:** as above.
+- **Primary test agent:** id `51363ef5-22f6-4c16-965d-da5ed6259ef8`, archetype macro, token
+  `0x5c85981115e4fe487FeFdbF9eD93201E827AB88f`, curve `0xCfB2573CD7B8e0C8B6a1B55d6E6D68E7344681c5`,
+  splitter `0xd7D2C044291CA5b60C7Ce6051207BC85269c81e6`, account `0x94467CD676Cd3aB2564756c50F88C74200dc3593`
+  (funded, deployed, keyed, reasoning). A second row `17ed5689...` is stuck in `deploying` (a half-finished
+  launch, no token) and can be cleaned up.
+- Database: the same **Neon Postgres** (`DATABASE_URL` in `.env`) is used by the droplet AND the laptop.
+
+### Local development
+- The whole engine runs on the laptop (`~/dev/september/agent-launchpad`) because the DB is cloud and the
+  RPC is remote. Root `.env` has all secrets (`DEPLOYER_KEY`, `DATABASE_URL`, `OPENROUTER_KEY`, `PINATA_JWT`,
+  `ROBINHOOD_ALCHEMY_RPC`, `ALCHEMY_KEY`, `OBSERVATORY_TOKEN`, `PLATFORM_TOKEN`, `PLATFORM_CURVE`).
+  `cd web && PORT=3010 npm run start` after `npm run build`. The `DEPLOYER_KEY` is backed up here (not just the box).
+
+### GitHub + secrets
+- Repo: **https://github.com/jeffersonnnn/agentpad** (private; account `jeffersonnnn`). Push over HTTPS via `gh`.
+- Secrets are gitignored and placed by hand on the box: repo-root `.env`, `agent/.secrets/`. None in git.
+
+### Open items / standing gates (priority order)
+1. **Rotate `DEPLOYER_KEY`** (security, still #1). It controls funds + owns contracts and now sits on the
+   DO droplet to run the grant/keeper. Treat as exposed; rotate and/or move money processes to a dedicated
+   host or secrets manager.
+2. **First real trade + first real distribution.** Needs a funded agent, fresh in-hours prices (for a BUY),
+   and realized gains above the high-water mark (for a payout). Keeper may need a paid RPC tier / bounded
+   `KEEPER_LOG_FROM_BLOCK` (free tier caps `eth_getLogs` at 10 blocks).
+3. **Verify live X posting** (currently only dry-run verified): connect real X API keys to an agent and
+   confirm a tweet lands.
+4. **Self-sustaining gas from fees** (deferred): owner-driven USDG->ETH top-up so agents never run dry. The
+   scoped session key cannot easily acquire native ETH, so it needs an owner op; validate on a working base first.
+5. **Hard gates:** security audit (fee splitter especially), key-management review, legal (ADR 0001/0002/0003).
+6. **Cleanup:** delete the stuck `17ed5689` deploying agent.
+
+### Planned updates (the roadmap - build next from here)
+**For holders / traders (demand side)**
+1. "My Agents" portfolio page - SHIPPED (basic). Follow-up: precise claimed-vs-pending.
+2. **One-click claim + distribution history** - a clean claim button (per-epoch Merkle proof via the claim
+   API + `Distributor.claim`) and a running log of payouts per agent.
+3. **Follow + alerts** - follow an agent, get pinged (in-app, X, Telegram, email) on trades and distributions.
+4. **Real candlestick chart + trade history** - index curve + Uniswap trades for full history and the
+   agent's actual on-chain trades (not just the sampled spot).
+5. **Square upgrades** - rank by profit paid / ROI / win rate, filter by archetype, compare two agents.
+
+**For creators (supply side)**
+6. **Agent control panel** - pause/resume, adjust distribution policy, rotate X keys, top up, in one settings tab.
+7. **Strategy controls + paper mode** - tune caps/cadence, add stop-loss / take-profit, dry-run on live prices.
+8. **Agent analytics** - PnL over time, win rate, fees earned, gas spent, USDG distributed.
+9. **Model + persona tuning** - pick the model per agent; a persona library.
+
+**Social / growth**
+10. **Auto recap threads on X** - agent posts a daily/weekly recap (builds on the X pipeline).
+11. **Shareable agent cards** - a generated OG image per agent (name, live PnL, profit paid).
+12. **Telegram / Discord mirror** - stream an agent's reasoning feed into a channel.
+
+**Recommended next 3 (highest leverage):** (a) one-click claim + distribution history (closes the holder
+loop), (b) real chart + trade history (the coin page is where people decide to buy), (c) auto recap threads
+on X (cheap on the verified X pipeline, keeps every agent visible).
+
+### /brag videos produced (gitignored, local only, delivered to the user)
+- `brag-output/` - the original 60s launch film.
+- `brag-output-2026-09-13-174746/` - "The Flywheel" (60s).
+- `brag-output-2026-09-13-180759/` - "Give Your Agent a Voice" / X connect (40s).
+- `brag-output-2026-09-13-184814/` - "My Agents" portfolio (35s).
 
 ---
 
