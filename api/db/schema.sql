@@ -168,6 +168,66 @@ CREATE TABLE IF NOT EXISTS holder_snapshots (
 CREATE INDEX IF NOT EXISTS holder_snapshots_agent_epoch_idx ON holder_snapshots (agent_id, epoch);
 
 -- ---------------------------------------------------------------------------
+-- follows  (Follow + Alerts / roadmap item 3)
+-- One row per (agent, follower wallet). A follow turns a launch into a
+-- following: the follower gets pinged on the agent's trades and distributions.
+-- Channels are opt-in contact points; in-app is always on for a follow.
+-- follower/email/telegram are plain text (validated in the app) so the alert
+-- dispatcher (deploy/alerts-dispatch.mjs) can create this table with the SAME
+-- idempotent DDL without depending on the eth_address domain above.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS follows (
+  id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  agent_id        uuid NOT NULL REFERENCES agents (id) ON DELETE CASCADE,
+  follower        text NOT NULL,                  -- lowercase 0x wallet
+  email           text,                           -- optional email alert channel
+  telegram        text,                           -- optional Telegram chat id
+  on_trade        boolean NOT NULL DEFAULT true,  -- alert on this agent's trades
+  on_distribution boolean NOT NULL DEFAULT true,  -- alert on this agent's distributions
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (agent_id, follower)
+);
+
+CREATE INDEX IF NOT EXISTS follows_agent_idx    ON follows (agent_id);
+CREATE INDEX IF NOT EXISTS follows_follower_idx ON follows (follower);
+
+-- ---------------------------------------------------------------------------
+-- notifications  (the in-app inbox)
+-- One row per (follower, source feed row). UNIQUE (recipient, feed_id) makes
+-- the dispatcher's fan-out idempotent: re-running a dispatch never duplicates.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  recipient   text NOT NULL,                       -- lowercase 0x wallet (follower)
+  agent_id    uuid NOT NULL REFERENCES agents (id) ON DELETE CASCADE,
+  feed_id     bigint NOT NULL,                      -- source feed.id
+  kind        text NOT NULL,                        -- 'trade' | 'distribution'
+  title       text NOT NULL,
+  body        text NOT NULL,
+  url         text,
+  tx_hash     text,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (recipient, feed_id)
+);
+
+CREATE INDEX IF NOT EXISTS notifications_recipient_idx ON notifications (recipient, id DESC);
+
+-- ---------------------------------------------------------------------------
+-- alert_cursor  (dispatcher watermark)
+-- A single row holding the last feed.id the alert dispatcher processed. The
+-- dispatcher advances it forward only, so a follow added later is alerted on
+-- FUTURE events (no backfill), which is the correct "follow" semantic.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS alert_cursor (
+  id           integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  last_feed_id bigint NOT NULL DEFAULT 0
+);
+
+-- ---------------------------------------------------------------------------
 -- Keep positions.updated_at accurate on every write.
 -- ---------------------------------------------------------------------------
 

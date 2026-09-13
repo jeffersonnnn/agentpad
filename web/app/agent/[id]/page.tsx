@@ -13,7 +13,9 @@ import { ARCHETYPES } from "@/lib/constants";
 import { AgentHeader } from "@/components/agent/AgentHeader";
 import { ChartCard } from "@/components/agent/ChartCard";
 import { MarketCard } from "@/components/agent/MarketCard";
+import { FollowCard } from "@/components/agent/FollowCard";
 import { OwnerActions } from "@/components/agent/OwnerActions";
+import { NotificationBell } from "@/components/NotificationBell";
 import { TradePanel } from "@/components/agent/TradePanel";
 import { TreasuryPanel } from "@/components/agent/TreasuryPanel";
 import { ReasoningFeed } from "@/components/agent/ReasoningFeed";
@@ -67,6 +69,7 @@ export default function AgentPage() {
             <Link href="/board" className={styles.backlink}>
               ← All agents
             </Link>
+            <NotificationBell />
             <ConnectButton />
           </div>
         </div>
@@ -122,6 +125,7 @@ function AgentView({
         </div>
         <div className={styles.stack}>
           <TradePanel agent={agent} />
+          <FollowCard agent={agent} />
           <MarketCard agent={agent} />
           <TreasuryPanel agent={agent} positions={positionsQ.data ?? []} />
           <OwnerActions agent={agent} />

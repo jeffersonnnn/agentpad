@@ -16,6 +16,7 @@ import { CHAIN_ID, USDG } from "@/lib/constants";
 import { ERC20_ABI, fmtUsdg } from "@/components/agent/onchain";
 import { TokenLogo } from "@/components/agent/ui";
 import { ConnectButton } from "@/components/ConnectButton";
+import { NotificationBell } from "@/components/NotificationBell";
 import type { Agent } from "@/lib/types";
 import styles from "./portfolio.module.css";
 
@@ -100,6 +101,7 @@ export default function PortfolioPage() {
             <Link href="/board" className={styles.backlink}>
               ← All agents
             </Link>
+            <NotificationBell />
             <ConnectButton />
           </div>
         </div>

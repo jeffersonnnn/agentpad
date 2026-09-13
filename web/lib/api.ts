@@ -41,6 +41,8 @@ export const ENDPOINTS = {
   agentClaim: (id: string) => `/api/agents/${encodeURIComponent(id)}/claim`,
   agentClaimFees: (id: string) => `/api/agents/${encodeURIComponent(id)}/claim-fees`,
   agentXConnect: (id: string) => `/api/agents/${encodeURIComponent(id)}/x-connect`,
+  agentFollow: (id: string) => `/api/agents/${encodeURIComponent(id)}/follow`,
+  notifications: "/api/notifications",
   squareLeaderboard: "/api/square/leaderboard",
   squareFeed: "/api/square/feed",
 } as const;
@@ -243,6 +245,71 @@ export function disconnectX(id: string, input: { message: string; signature: Hex
     method: "DELETE",
     body: JSON.stringify(input),
   });
+}
+
+// ── Follow + Alerts (roadmap item 3): follow an agent, get pinged on its trades + distributions ─────
+
+// Opt-in alert channels stored with a follow. In-app is always on for a follow; these are extra.
+export interface FollowChannels {
+  email: string | null;
+  telegram: string | null;
+  onTrade: boolean;
+  onDistribution: boolean;
+}
+
+export interface FollowState {
+  following: boolean;
+  follow: FollowChannels | null;
+  followers: number;
+}
+
+export interface NotificationItem {
+  id: string;
+  recipient: string;
+  agent_id: string;
+  feed_id: string;
+  kind: "trade" | "distribution" | string;
+  title: string;
+  body: string;
+  url: string | null;
+  tx_hash: string | null;
+  created_at: string;
+}
+
+/** The exact message a follower signs to authorize a follow/unfollow. Must match the route byte-for-byte. */
+export function followMessage(agentId: string, action: "follow" | "unfollow", address: string, issuedIso: string): string {
+  return `Slingshot follow\nagent: ${agentId}\naction: ${action}\naddress: ${address}\nissued: ${issuedIso}`;
+}
+
+/** Follow state for a wallet (public). Pass the agent UUID as `id`. */
+export function getFollowState(id: string, address?: Address): Promise<FollowState> {
+  const qs = address ? `?${new URLSearchParams({ address })}` : "";
+  return request<FollowState>(`${ENDPOINTS.agentFollow(id)}${qs}`);
+}
+
+/** Follow the agent (or edit channels). `message`/`signature` come from the follower's wallet. */
+export function followAgent(
+  id: string,
+  input: { address: Address; email?: string | null; telegram?: string | null; onTrade?: boolean; onDistribution?: boolean; message: string; signature: Hex },
+): Promise<FollowState> {
+  return request<FollowState>(ENDPOINTS.agentFollow(id), {
+    method: "POST",
+    body: JSON.stringify({ action: "follow", ...input }),
+  });
+}
+
+/** Unfollow the agent (follower-signed). */
+export function unfollowAgent(id: string, input: { address: Address; message: string; signature: Hex }): Promise<FollowState> {
+  return request<FollowState>(ENDPOINTS.agentFollow(id), {
+    method: "POST",
+    body: JSON.stringify({ action: "unfollow", ...input }),
+  });
+}
+
+/** The in-app alert inbox for a wallet, newest first. */
+export function getNotifications(address: Address, limit = 50): Promise<NotificationItem[]> {
+  const qs = new URLSearchParams({ address, limit: String(limit) });
+  return request<{ notifications: NotificationItem[] }>(`${ENDPOINTS.notifications}?${qs}`).then((r) => r.notifications);
 }
 
 // ── Helper: turn the JSON-safe LaunchTx into wagmi/viem sendTransaction args ───────────────────────

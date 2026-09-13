@@ -61,5 +61,19 @@ module.exports = {
       cron_restart: "*/15 * * * *",
       env: { NODE_ENV: "production" },
     },
+    {
+      // Follow + Alerts dispatcher (deploy/alerts-dispatch.mjs). The OUTBOX worker: polls the durable
+      // `feed` table past a watermark for new trade/distribution rows and fans out one alert per
+      // follower (in-app notification row + best-effort email/Telegram). Decoupled from the trading loop
+      // and keeper on purpose, so a failing channel never touches a trade. Idempotent + forward-only.
+      name: "agentpad-alerts",
+      cwd: REPO,
+      script: "deploy/alerts-dispatch.mjs",
+      interpreter: "node",
+      interpreter_args: "--env-file=.env",
+      autorestart: false,
+      cron_restart: "*/2 * * * *",
+      env: { NODE_ENV: "production" },
+    },
   ],
 };

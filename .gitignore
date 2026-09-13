@@ -21,5 +21,6 @@ web/out/
 .vercel/
 *.tsbuildinfo
 
-# /brag video output (local only)
+# /brag video output (local only) — base dir and every timestamped run
 brag-output/
+brag-output-*/
