@@ -54,11 +54,22 @@ export interface FeedEntry {
   meta: Record<string, unknown>;
 }
 
-// ── Square (ADR 0005 / SPEC 11): the global community surface ──────────────────────────────────────
-// Leaderboard entry: an Agent plus its realized profit paid to holders (sum of distributions).
+// ── Square (ADR 0005 / SPEC 11): the global community surface, now a discovery engine (roadmap 5) ────
+// Leaderboard entry: an Agent plus every rankable metric. Money fields are USDG base units (6 dec) as
+// decimal strings. ROI and win rate are derived in the UI (roi = realized/deployed; win = wins/closed).
+export type SquareSort = "followers" | "active" | "profit" | "roi" | "winrate" | "trades" | "newest" | "oldest";
+
 export interface LeaderboardEntry extends Agent {
-  total_distributed_usdg: string; // USDG base units (6 dec), decimal string — the ranking metric
+  total_distributed_usdg: string; // sum of published distributions (base6) — the "profit paid" metric
   distribution_count: number;
+  followers: number; // rows in `follows` for this agent
+  trades: number; // feed rows of kind 'trade'
+  closed: number; // trades that realized (sells with realized_usdg) — the win-rate denominator
+  wins: number; // closed trades with realized_usdg > 0
+  realized_usdg: string; // total realized PnL (base6, may be negative)
+  deployed_usdg: string; // total USDG deployed into buys (base6) — the ROI denominator
+  feed_count: number; // total feed entries (activity magnitude)
+  last_active: string | null; // ISO timestamp of the most recent feed entry
 }
 
 // A global feed row across all agents, carrying just enough agent info to resolve the name on-chain.

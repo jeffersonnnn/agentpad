@@ -24,6 +24,7 @@ import type {
   PrepareLaunchInput,
   PrepareLaunchResult,
   SquareFeedEntry,
+  SquareSort,
 } from "./types";
 
 // Empty base = same-origin Next.js route handlers (the default deployment).
@@ -203,9 +204,17 @@ export function getClaim(agentId: string, epoch: string, address: Address): Prom
 
 // ── The Square (ADR 0005 / SPEC 11): the global community surface ───────────────────────────────────
 
-/** Agents ranked by realized profit paid to holders (sum of distributions), tiebreak by age. */
-export function getSquareLeaderboard(params?: { status?: string; limit?: number }): Promise<LeaderboardEntry[]> {
+/** Agents ranked by a chosen metric (followers, activity, profit, ROI, win rate, ...), optionally
+ *  filtered by archetype. The leaderboard as a discovery engine (roadmap 5). */
+export function getSquareLeaderboard(params?: {
+  sort?: SquareSort;
+  archetype?: string;
+  status?: string;
+  limit?: number;
+}): Promise<LeaderboardEntry[]> {
   const qs = new URLSearchParams();
+  if (params?.sort) qs.set("sort", params.sort);
+  if (params?.archetype) qs.set("archetype", params.archetype);
   if (params?.status) qs.set("status", params.status);
   if (params?.limit) qs.set("limit", String(params.limit));
   const suffix = qs.toString() ? `?${qs}` : "";
