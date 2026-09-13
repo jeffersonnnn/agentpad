@@ -858,6 +858,12 @@ const GRANT_TTL_S = 86400; // 24h key lifetime; re-granted before expiry
 // The account pays its own gas, so we only attempt this once the account holds >= GRANT_MIN_ETH_WEI.
 export async function grantAgentSession({ agentId }, deps = {}) {
   const d = await resolveDeps(deps);
+  // The on-chain deploy/grant ops self-bundle via EntryPoint.handleOps (the proven 4663 submit path),
+  // which needs a funded relayer EOA. Default it to the deployer so we do not duplicate the key in .env.
+  if (String(process.env.AGENT_SUBMIT || "").toLowerCase() === "handleops" && !process.env.AGENT_RELAYER_KEY) {
+    const dk = deps.deployerKey || process.env.DEPLOYER_KEY;
+    if (dk) process.env.AGENT_RELAYER_KEY = dk;
+  }
   try {
     const row = await d.db.getAgent(agentId);
     if (!row) throw new Error("agent not found");
