@@ -897,7 +897,18 @@ export async function grantAgentSession({ agentId }, deps = {}) {
 
     const sessionPk = generatePrivateKey();
     const sessionSigner = privateKeyToAccount(sessionPk);
-    const res = await stack.grantSession({ ownerSigner, sessionSigner, policy, deploy: true });
+
+    // Deploy the account with the OWNER (sudo) validator FIRST. Deploying through the combined
+    // sudo+session validator (grantSession deploy:true) reverts with AA23, because it tries to enable
+    // the scoped session validator in the same op that deploys the account. The correct ERC-4337
+    // pattern is: deploy with the root validator, then let the session validator enable lazily on the
+    // agent's first scoped trade (resumeSession). So we deploy via a no-op owner call, then serialize
+    // the grant WITHOUT deploying.
+    const code = await d.publicClient.getCode({ address: account });
+    if (!code || code === "0x") {
+      await stack.sendOwnerCall({ ownerSigner, accountAddress: account, to: account, data: "0x", value: 0n });
+    }
+    const res = await stack.grantSession({ ownerSigner, sessionSigner, policy, deploy: false });
 
     // Persist for the runtime (reason-all reads approval + sessionKey). 0600, gitignored .secrets dir.
     const dir = path.join(REPO_ROOT, "agent", ".secrets");
