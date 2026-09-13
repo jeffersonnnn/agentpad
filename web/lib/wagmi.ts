@@ -13,9 +13,21 @@ import { robinhood } from "viem/chains";
 import { coinbaseWallet, injected, walletConnect } from "wagmi/connectors";
 import { PUBLIC_RPC } from "./constants";
 
-// Browser-facing, read-only RPC. Overridable via NEXT_PUBLIC_RH_RPC_URL, but NEVER point this at the
-// Alchemy URL (it embeds a secret key) — proxy Alchemy through the server instead.
-const rpcUrl = process.env.NEXT_PUBLIC_RH_RPC_URL || PUBLIC_RPC;
+// Browser-facing, read-only RPC. NEVER point this at the Alchemy URL (it embeds a secret key). Instead
+// the browser reads through our same-origin proxy (/api/rpc), which forwards to the reliable paid node
+// server-side. This is what stops launches stalling on the flaky public node (the "resolving" eth_call
+// and receipt waits used to time out there). Order: an explicit NEXT_PUBLIC_RH_RPC_URL override wins;
+// otherwise the same-origin proxy (absolute on the client via window.origin, or NEXT_PUBLIC_SITE_URL on
+// the server); the public node is only the last-resort fallback for a server render with no site URL.
+const PROXY_PATH = "/api/rpc";
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
+const rpcUrl =
+  process.env.NEXT_PUBLIC_RH_RPC_URL ||
+  (typeof window !== "undefined"
+    ? `${window.location.origin}${PROXY_PATH}`
+    : siteUrl
+      ? `${siteUrl}${PROXY_PATH}`
+      : PUBLIC_RPC);
 // Optional: a WalletConnect Cloud project id enables the mobile-wallet QR flow. Without it we simply
 // omit WalletConnect (browser-extension wallets still work through injected + Coinbase).
 const wcProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
@@ -33,7 +45,8 @@ export function getConfig() {
     storage: createStorage({ storage: cookieStorage }),
     ssr: true,
     transports: {
-      [robinhood.id]: http(rpcUrl),
+      // Bound the wait and retry a couple of times: a single slow read must not strand a launch.
+      [robinhood.id]: http(rpcUrl, { timeout: 15_000, retryCount: 2, retryDelay: 700 }),
     },
   });
 }
