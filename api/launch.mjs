@@ -70,7 +70,7 @@ import {
   stringToHex,
   zeroAddress,
 } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
+import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, "..");
@@ -838,6 +838,89 @@ export async function claimFees({ agentId }, deps = {}) {
     if (rc.status !== "success") throw new Error(`claimAndRoute reverted (${txHash})`);
 
     return { txHash, splitter, agentAmount, platformAmount, treasury: row.account_addr ?? null };
+  } finally {
+    await closeOwnedPool(d);
+  }
+}
+
+// Minimum ETH the agent account must hold before we try to grant — the grant DEPLOYS the account and
+// installs the session key, and the account pays that gas itself (ADR 0004, no paymaster). Below this we
+// wait for the creator to top the account up (the Fund & manage box), then grant on the next pass.
+const GRANT_MIN_ETH_WEI = 1_000_000_000_000_000n; // 0.001 ETH
+const GRANT_CAP_USDG_UNITS = 5000n * 1_000_000n; // 5000 USDG spend budget (base units, 6 dp)
+const GRANT_MAX_TRADES = 10;
+const GRANT_TTL_S = 86400; // 24h key lifetime; re-granted before expiry
+
+// Grant (or re-grant) a scoped session key for one agent so it can trade — the enabler for autonomous
+// trading. Uses the SAME per-agent owner the launch predicted the account from (deriveAccountOwnerKey),
+// verifies the derived address matches the recorded account, then installs a session key scoped to the
+// archetype's assets + caps and persists it to agent/.secrets/session-<id>.json (the reasoner reads it).
+// The account pays its own gas, so we only attempt this once the account holds >= GRANT_MIN_ETH_WEI.
+export async function grantAgentSession({ agentId }, deps = {}) {
+  const d = await resolveDeps(deps);
+  try {
+    const row = await d.db.getAgent(agentId);
+    if (!row) throw new Error("agent not found");
+    if (!row.account_addr) return { granted: false, reason: "no account address yet" };
+    const account = getAddress(row.account_addr);
+
+    // Gate on gas: the deploy+install userOp pays its prefund from the account's own balance.
+    const bal = await d.publicClient.getBalance({ address: account });
+    if (bal < GRANT_MIN_ETH_WEI) {
+      return { granted: false, reason: "needs-gas", account, balanceWei: bal.toString() };
+    }
+
+    const dk = normalizePk(deps.deployerKey || process.env.DEPLOYER_KEY);
+    if (!dk) throw new Error("DEPLOYER_KEY required to derive the agent account owner");
+    const salt = deriveSalt(agentId);
+    const ownerSigner = privateKeyToAccount(deriveAccountOwnerKey(dk, salt));
+
+    const { createAccountStack } = await import("../agent/lib/stack.mjs");
+    const stack = await createAccountStack(deps.stack || "zerodev", { rpcUrl: d.rpcUrl, chain: d.chain });
+
+    // SANITY: the owner we derived must reproduce the recorded account address, or we would grant on the
+    // wrong account. Fail loudly instead.
+    const predicted = getAddress(await stack.predictAddress({ ownerSigner, salt }));
+    if (predicted !== account) {
+      throw new Error(`grant aborted: derived account ${predicted} != recorded ${account} (owner-derivation mismatch)`);
+    }
+
+    const { buildSessionPolicy } = await import("../agent/lib/archetypes.mjs");
+    const validUntil = Math.floor(Date.now() / 1000) + GRANT_TTL_S;
+    const policy = buildSessionPolicy({
+      archetype: row.archetype || "macro",
+      spendBudget: GRANT_CAP_USDG_UNITS,
+      dailyTradeLimit: GRANT_MAX_TRADES,
+      validUntil,
+      ttl: GRANT_TTL_S,
+    });
+
+    const sessionPk = generatePrivateKey();
+    const sessionSigner = privateKeyToAccount(sessionPk);
+    const res = await stack.grantSession({ ownerSigner, sessionSigner, policy, deploy: true });
+
+    // Persist for the runtime (reason-all reads approval + sessionKey). 0600, gitignored .secrets dir.
+    const dir = path.join(REPO_ROOT, "agent", ".secrets");
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `session-${agentId}.json`);
+    fs.writeFileSync(
+      file,
+      JSON.stringify(
+        {
+          agentId,
+          accountAddress: res.accountAddress || account,
+          sessionKeyAddress: sessionSigner.address,
+          approval: res.approval,
+          sessionKey: sessionPk,
+          archetype: row.archetype || "macro",
+          validUntil,
+        },
+        null,
+        2,
+      ),
+      { mode: 0o600 },
+    );
+    return { granted: true, account, sessionKeyAddress: sessionSigner.address, deployed: res.deployed, validUntil };
   } finally {
     await closeOwnedPool(d);
   }

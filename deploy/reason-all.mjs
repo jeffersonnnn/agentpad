@@ -71,6 +71,13 @@ function envForAgent(row) {
     } catch { /* ignore a malformed session file — fall back to reason-only */ }
   }
 
+  // Trade submission: the proven mainnet path self-bundles via EntryPoint.handleOps from a funded
+  // relayer (the deployer) while the AGENT'S account still pays its own prefund. Default the relayer to
+  // DEPLOYER_KEY when handleops submit is on, so we do not duplicate the key in .env.
+  if ((process.env.AGENT_SUBMIT || "").toLowerCase() === "handleops" && !env.AGENT_RELAYER_KEY && process.env.DEPLOYER_KEY) {
+    env.AGENT_RELAYER_KEY = process.env.DEPLOYER_KEY;
+  }
+
   // Optional per-agent X keys (socials MCP), same path the web X-connect flow writes.
   const socials = path.join(REPO, "agent", ".secrets", `socials-${row.id}.json`);
   if (fs.existsSync(socials)) env.SOCIALS_CONFIG = socials;

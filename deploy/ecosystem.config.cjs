@@ -36,6 +36,19 @@ module.exports = {
       env: { NODE_ENV: "production" },
     },
     {
+      // Lazy auto-grant: install a scoped session key for any live, funded agent that lacks one, so it
+      // can trade (deploy/grant-ready.mjs). The account pays the grant gas itself, so it grants only
+      // once the creator has topped the agent up with ETH. Re-grants before the 24h key TTL expires.
+      name: "agentpad-grant",
+      cwd: REPO,
+      script: "deploy/grant-ready.mjs",
+      interpreter: "node",
+      interpreter_args: "--env-file=.env",
+      autorestart: false,
+      cron_restart: "*/5 * * * *",
+      env: { NODE_ENV: "production" },
+    },
+    {
       // The keeper: sweeps creator fees (80/20 route) and runs distribution epochs. One pass per run,
       // scheduled by cron. Processes all live agents.
       name: "agentpad-keeper",
