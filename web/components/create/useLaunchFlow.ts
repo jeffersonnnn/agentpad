@@ -87,6 +87,10 @@ const ERC20_ABI = [
   },
 ] as const;
 
+// The agent account launches empty; give it a small ETH gas buffer so it can grant its trading key and
+// trade without a manual top-up (creator-funded, ADR 0004). ~0.003 ETH covers the grant + many trades.
+const AGENT_GAS_WEI = parseEther("0.003");
+
 export type LaunchPhase =
   | "idle"
   | "preparing"
@@ -94,6 +98,7 @@ export type LaunchPhase =
   | "awaiting-signature"
   | "confirming"
   | "finalizing"
+  | "funding-gas"
   | "dev-buy"
   | "done"
   | "error";
@@ -111,6 +116,8 @@ export interface LaunchOutcome {
   accountAddr: Address;
   launchTxHash: Hex;
   finalize: FinalizeLaunchResult;
+  gasFundTxHash?: Hex;
+  gasFundError?: string;
   devBuyTxHash?: Hex;
   devBuyError?: string;
 }
@@ -129,6 +136,7 @@ const PHASE_LABELS: Record<LaunchPhase, string> = {
   "awaiting-signature": "Confirm the launch in your wallet…",
   confirming: "Waiting for the launch to confirm on-chain…",
   finalizing: "Wiring the splitter and starting the agent…",
+  "funding-gas": "Funding the agent's gas so it can trade…",
   "dev-buy": "Confirm the developer buy in your wallet…",
   done: "Your agent is live.",
   error: "Something went wrong.",
@@ -253,6 +261,24 @@ export function useLaunchFlow() {
           launchTxHash,
           finalize,
         };
+
+        // Step 5b — auto-fund the agent's gas (creator-funded; ADR 0004: the account pays its own gas).
+        // A fresh agent account has 0 ETH, so it cannot grant its trading key or trade. Send a small ETH
+        // buffer to it now so it comes alive on its own. Non-fatal: a declined/failed send just means the
+        // agent reasons until the creator tops it up from the agent page.
+        if (result.accountAddr) {
+          try {
+            go("funding-gas");
+            const gasTxHash = await walletClient.sendTransaction({
+              to: result.accountAddr,
+              value: AGENT_GAS_WEI,
+            });
+            await publicClient.waitForTransactionReceipt({ hash: gasTxHash });
+            result.gasFundTxHash = gasTxHash;
+          } catch (e) {
+            result.gasFundError = e instanceof Error ? e.message : String(e);
+          }
+        }
 
         // Step 6 — optional developer buy (a separate creator-signed curve.buy; SPEC.md section 9).
         // Non-fatal: the agent is already live, so a failed dev buy is recorded but not thrown.
