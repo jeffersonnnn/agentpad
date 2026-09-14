@@ -42,7 +42,7 @@ export async function query<T extends QueryResultRow = QueryResultRow>(
 // explicit list keeps the wire contract pinned).
 export const AGENT_COLS =
   "id, token_addr, curve_addr, splitter_addr, distributor_addr, account_addr, creator_addr, " +
-  "archetype, persona_prompt, model, quote_asset, status, logo_url, created_at";
+  "archetype, persona_prompt, model, quote_asset, status, logo_url, paused, created_at";
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const ADDR_RE = /^0x[0-9a-fA-F]{40}$/;

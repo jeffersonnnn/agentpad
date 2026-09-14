@@ -120,7 +120,7 @@ async function main() {
     const res = await pool.query(
       `SELECT id, archetype, persona_prompt, model, account_addr, splitter_addr
          FROM agents
-        WHERE status IN ('live','sleeping') AND account_addr IS NOT NULL
+        WHERE status IN ('live','sleeping') AND account_addr IS NOT NULL AND paused IS NOT TRUE
         ORDER BY created_at ASC`,
     );
     rows = res.rows;

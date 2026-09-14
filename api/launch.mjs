@@ -843,6 +843,84 @@ export async function claimFees({ agentId }, deps = {}) {
   }
 }
 
+// Minimal ERC-20 ABI for the sweep (balance read + transfer).
+const SWEEP_ERC20_ABI = [
+  { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "a", type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "transfer", stateMutability: "nonpayable", inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }] },
+];
+const SWEEP_MIN_ETH_WEI = 1_000_000_000_000_000n; // 0.001 ETH: the account pays its own gas to run the owner ops
+
+// Sweep an agent's account back to a destination (default: the creator wallet). Recovers the ERC-20 value
+// (USDG + any archetype token the account holds, e.g. SGOV/SLV/ETH positions). Uses the SAME per-agent
+// owner the launch derived the account from, via unrestricted owner calls (transfer(to, amount) on each
+// token). ETH is left in place (it is the gas the owner ops spend). `dryRun` returns the plan WITHOUT
+// moving anything. Selling positions to USDG first is a future enhancement; v1 transfers the raw tokens.
+export async function sweepAgent({ agentId, to, dryRun = false }, deps = {}) {
+  const d = await resolveDeps(deps);
+  if (String(process.env.AGENT_SUBMIT || "").toLowerCase() === "handleops" && !process.env.AGENT_RELAYER_KEY) {
+    const dkk = deps.deployerKey || process.env.DEPLOYER_KEY;
+    if (dkk) process.env.AGENT_RELAYER_KEY = dkk;
+  }
+  try {
+    const row = await d.db.getAgent(agentId);
+    if (!row) throw new Error("agent not found");
+    if (!row.account_addr) throw new Error("agent has no account yet");
+    const account = getAddress(row.account_addr);
+    const dest = getAddress(to || row.creator_addr); // default destination: the creator wallet
+
+    // Candidate tokens: USDG plus the archetype's tradeable assets (covers any position it holds).
+    // Dedup on lowercase from the start so USDG (also in the archetype set) is not listed/transferred
+    // twice, and lowercasing sidesteps a viem checksum quirk on some mixed-case token addresses.
+    let raw = [USDG];
+    try {
+      const { resolveArchetype } = await import("../agent/lib/archetypes.mjs");
+      raw = [USDG, ...resolveArchetype(row.archetype).allowedTokens];
+    } catch { /* unknown archetype: USDG only */ }
+    const tokenAddrs = Array.from(new Set(raw.map((a) => String(a).toLowerCase())));
+
+    const balances = [];
+    for (const lc of tokenAddrs) {
+      try {
+        const addr = getAddress(lc);
+        const bal = await d.publicClient.readContract({ address: addr, abi: SWEEP_ERC20_ABI, functionName: "balanceOf", args: [account] });
+        if (bal > 0n) balances.push({ token: addr, amount: bal.toString() });
+      } catch {
+        /* skip a token that cannot be read (not deployed / odd checksum); it is not held anyway */
+      }
+    }
+    const ethWei = await d.publicClient.getBalance({ address: account });
+    const plan = { account, destination: dest, tokens: balances, ethWei: ethWei.toString(), canExecute: ethWei >= SWEEP_MIN_ETH_WEI && balances.length > 0 };
+
+    if (dryRun) return { dryRun: true, ...plan };
+    if (balances.length === 0) return { swept: false, reason: "nothing to sweep", ...plan };
+    if (ethWei < SWEEP_MIN_ETH_WEI) return { swept: false, reason: "needs-gas (top up ETH to sweep)", ...plan };
+
+    // Execute: derive the owner, verify it reproduces the account, deploy if needed, transfer each token.
+    const dk = normalizePk(deps.deployerKey || process.env.DEPLOYER_KEY);
+    if (!dk) throw new Error("DEPLOYER_KEY required to derive the agent account owner");
+    const salt = deriveSalt(agentId);
+    const ownerSigner = privateKeyToAccount(deriveAccountOwnerKey(dk, salt));
+    const { createAccountStack } = await import("../agent/lib/stack.mjs");
+    const stack = await createAccountStack(deps.stack || "zerodev", { rpcUrl: d.rpcUrl, chain: d.chain });
+    const predicted = getAddress(await stack.predictAddress({ ownerSigner, salt }));
+    if (predicted !== account) throw new Error(`sweep aborted: derived account ${predicted} != recorded ${account} (owner mismatch)`);
+
+    const code = await d.publicClient.getCode({ address: account });
+    if (!code || code === "0x") {
+      await stack.sendOwnerCall({ ownerSigner, accountAddress: account, to: account, data: "0x", value: 0n });
+    }
+    const transfers = [];
+    for (const b of balances) {
+      const data = encodeFunctionData({ abi: SWEEP_ERC20_ABI, functionName: "transfer", args: [dest, BigInt(b.amount)] });
+      const r = await stack.sendOwnerCall({ ownerSigner, accountAddress: account, to: b.token, data, value: 0n });
+      transfers.push({ token: b.token, amount: b.amount, txHash: r?.txHash || r?.transactionHash || r?.hash || null });
+    }
+    return { swept: true, account, destination: dest, transfers, ethWei: ethWei.toString() };
+  } finally {
+    await closeOwnedPool(d);
+  }
+}
+
 // Minimum ETH the agent account must hold before we try to grant — the grant DEPLOYS the account and
 // installs the session key, and the account pays that gas itself (ADR 0004, no paymaster). Below this we
 // wait for the creator to top the account up (the Fund & manage box), then grant on the next pass.

@@ -28,6 +28,7 @@ export interface Agent {
   quote_asset: QuoteAsset | string;
   status: AgentStatus;
   logo_url: string | null; // token logo URL (IPFS gateway), captured at launch
+  paused: boolean; // creator-paused: the reasoner + grant crons skip it (agent control panel)
   created_at: string; // ISO timestamp
 }
 

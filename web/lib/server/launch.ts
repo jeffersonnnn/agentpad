@@ -30,10 +30,23 @@ export interface ClaimFeesResult {
   treasury: string | null;
 }
 
+export interface SweepPlan {
+  dryRun?: boolean;
+  swept?: boolean;
+  reason?: string;
+  account: string;
+  destination: string;
+  tokens: { token: string; amount: string }[];
+  ethWei: string;
+  canExecute?: boolean;
+  transfers?: { token: string; amount: string; txHash: string | null }[];
+}
+
 interface LaunchModule {
   prepareLaunch(input: PrepareLaunchInput): Promise<PrepareLaunchResult>;
   finalizeLaunch(input: FinalizeLaunchInput): Promise<FinalizeLaunchResult>;
   claimFees(input: { agentId: string }): Promise<ClaimFeesResult>;
+  sweepAgent(input: { agentId: string; to?: string; dryRun?: boolean }): Promise<SweepPlan>;
 }
 
 let cached: LaunchModule | null = null;

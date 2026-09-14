@@ -43,6 +43,9 @@ export const ENDPOINTS = {
   agentClaimFees: (id: string) => `/api/agents/${encodeURIComponent(id)}/claim-fees`,
   agentXConnect: (id: string) => `/api/agents/${encodeURIComponent(id)}/x-connect`,
   agentFollow: (id: string) => `/api/agents/${encodeURIComponent(id)}/follow`,
+  agentControl: (id: string) => `/api/agents/${encodeURIComponent(id)}/control`,
+  agentDistribution: (id: string) => `/api/agents/${encodeURIComponent(id)}/distribution`,
+  agentSweep: (id: string) => `/api/agents/${encodeURIComponent(id)}/sweep`,
   notifications: "/api/notifications",
   squareLeaderboard: "/api/square/leaderboard",
   squareFeed: "/api/square/feed",
@@ -319,6 +322,54 @@ export function unfollowAgent(id: string, input: { address: Address; message: st
 export function getNotifications(address: Address, limit = 50): Promise<NotificationItem[]> {
   const qs = new URLSearchParams({ address, limit: String(limit) });
   return request<{ notifications: NotificationItem[] }>(`${ENDPOINTS.notifications}?${qs}`).then((r) => r.notifications);
+}
+
+// ── Agent control panel (creator-signed): pause/resume, distribution policy, sweep/withdraw ─────────
+
+export function controlMessage(agentId: string, action: "pause" | "resume", issuedIso: string): string {
+  return `Slingshot control\nagent: ${agentId}\naction: ${action}\nissued: ${issuedIso}`;
+}
+export function distributionMessage(agentId: string, mode: string, rateBps: number, cadence: string, issuedIso: string): string {
+  return `Slingshot distribution\nagent: ${agentId}\nmode: ${mode}\nrate_bps: ${rateBps}\ncadence: ${cadence}\nissued: ${issuedIso}`;
+}
+export function sweepMessage(agentId: string, to: string, issuedIso: string): string {
+  return `Slingshot sweep\nagent: ${agentId}\nto: ${to}\nissued: ${issuedIso}`;
+}
+
+/** Pause or resume the agent (creator-signed). Returns the new paused state. */
+export function controlAgent(id: string, input: { action: "pause" | "resume"; message: string; signature: Hex }): Promise<{ paused: boolean }> {
+  return request<{ paused: boolean }>(ENDPOINTS.agentControl(id), { method: "POST", body: JSON.stringify(input) });
+}
+
+/** Update the payout policy (creator-signed). */
+export function updateDistribution(
+  id: string,
+  input: { mode: string; rate_bps: number; cadence: string; message: string; signature: Hex },
+): Promise<{ mode: string; rate_bps: number; cadence: string }> {
+  return request(ENDPOINTS.agentDistribution(id), { method: "POST", body: JSON.stringify(input) });
+}
+
+export interface SweepPlan {
+  dryRun?: boolean;
+  swept?: boolean;
+  reason?: string;
+  account: string;
+  destination: string;
+  tokens: { token: string; amount: string }[];
+  ethWei: string;
+  canExecute?: boolean;
+  transfers?: { token: string; amount: string; txHash: string | null }[];
+}
+
+/** Preview what a sweep would move (no signature; public on-chain reads). */
+export function previewSweep(id: string, to?: Address): Promise<SweepPlan> {
+  const qs = to ? `?${new URLSearchParams({ to })}` : "";
+  return request<SweepPlan>(`${ENDPOINTS.agentSweep(id)}${qs}`);
+}
+
+/** Execute the sweep (creator-signed). Destination defaults to the creator server-side. */
+export function executeSweep(id: string, input: { to?: Address; message: string; signature: Hex }): Promise<SweepPlan> {
+  return request<SweepPlan>(ENDPOINTS.agentSweep(id), { method: "POST", body: JSON.stringify(input) });
 }
 
 // ── Helper: turn the JSON-safe LaunchTx into wagmi/viem sendTransaction args ───────────────────────

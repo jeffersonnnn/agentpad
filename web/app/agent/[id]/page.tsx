@@ -15,6 +15,7 @@ import { ChartCard } from "@/components/agent/ChartCard";
 import { MarketCard } from "@/components/agent/MarketCard";
 import { FollowCard } from "@/components/agent/FollowCard";
 import { OwnerActions } from "@/components/agent/OwnerActions";
+import { CreatorSettings } from "@/components/agent/CreatorSettings";
 import { NotificationBell } from "@/components/NotificationBell";
 import { TradePanel } from "@/components/agent/TradePanel";
 import { TreasuryPanel } from "@/components/agent/TreasuryPanel";
@@ -129,6 +130,7 @@ function AgentView({
           <MarketCard agent={agent} />
           <TreasuryPanel agent={agent} positions={positionsQ.data ?? []} />
           <OwnerActions agent={agent} />
+          <CreatorSettings agent={agent} distribution={distribution} />
           <DistributionsPanel agent={agent} config={distribution} />
           <StrategyCard archetype={agent.archetype} persona={agent.persona_prompt} />
           <XConnectPanel agent={agent} />

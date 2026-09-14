@@ -75,6 +75,11 @@ CREATE TABLE IF NOT EXISTS agents (
 -- EXISTS keeps this file purely additive and safe to re-run.
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS distributor_addr eth_address;
 
+-- Creator-pause flag (agent control panel). A separate column, NOT the status enum: the keeper already
+-- flips status live<->sleeping automatically on balance, so pause must not collide with that. When true,
+-- the reasoner and grant crons skip the agent (no reasoning, no trading, no key grant).
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS paused boolean NOT NULL DEFAULT false;
+
 CREATE INDEX IF NOT EXISTS agents_status_idx       ON agents (status);
 CREATE INDEX IF NOT EXISTS agents_creator_addr_idx ON agents (creator_addr);
 CREATE INDEX IF NOT EXISTS agents_created_at_idx   ON agents (created_at DESC);
