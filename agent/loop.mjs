@@ -115,13 +115,19 @@ const BPS = 10000n;
 
 // Freshness classes (SPEC.md section 6 / FACTS.md). Cutoff in seconds.
 const SLOW_FEED = new Set(["SGOV", "SLV"]); // short treasuries + metals: value barely moves, 24h ok
-const FEEDLESS = new Set(["GLD"]);          // no Chainlink feed; off-hours-unsafe (thin TWAP only)
+// Feedless: no Chainlink feed; priced off a v3 TWAP with a deviation band. GLD is off-hours-blocked
+// (thin, US-hours only); PONS/MEME/AI are 24/7 memecoins (the market MCP sets off_hours=false for them,
+// so the off-hours branch below passes and only a band violation -> `stale` blocks them).
+const FEEDLESS = new Set(["GLD", "PONS", "MEME", "AI"]);
+const CRYPTO_FEED = new Set(["WETH", "ETH"]); // 24/7 Chainlink feed (ETH/USD); heartbeat ~1-2h
 const EQUITY_CUTOFF_S = 300;                // equities + equity ETFs go stale off-hours
 const SLOW_CUTOFF_S = 24 * 3600;
+const CRYPTO_CUTOFF_S = 7200;               // ~2h: covers the crypto feed heartbeat; 0.5% deviation keeps it accurate
 
 /** Seconds of staleness tolerated for a symbol's decision price. */
 export function freshnessCutoffSeconds(symbol) {
-  if (FEEDLESS.has(symbol)) return 0;          // handled specially in freshnessOk (off-hours = no trade)
+  if (FEEDLESS.has(symbol)) return 0;          // handled specially in freshnessOk (TWAP + off-hours branch)
+  if (CRYPTO_FEED.has(symbol)) return CRYPTO_CUTOFF_S;
   if (SLOW_FEED.has(symbol)) return SLOW_CUTOFF_S;
   return EQUITY_CUTOFF_S;
 }

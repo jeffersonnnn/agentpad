@@ -65,7 +65,16 @@ autoloadEnv();
 // ── Freshness cutoffs (SPEC.md section 6) ────────────────────────────────────────────────────────
 const CUTOFF_EQUITY = 300;    // seconds — equities and equity/commodity ETFs (24/5 feeds)
 const CUTOFF_SLOW = 86400;    // seconds — SGOV (short treasuries), SLV (metals): value barely moves
-const CUTOFFS = { equity: CUTOFF_EQUITY, slow: CUTOFF_SLOW };
+// Crypto (ETH) has a 24/7 Chainlink feed, but it updates on a ~1-2h heartbeat + 0.5% deviation, so the
+// cutoff must be wider than the equity 300s or a fresh-but-heartbeat-old price would read as stale. The
+// 0.5% deviation trigger keeps the price accurate between updates, so ~2h is safe.
+const CUTOFF_CRYPTO = 7200;
+const CUTOFFS = { equity: CUTOFF_EQUITY, slow: CUTOFF_SLOW, crypto: CUTOFF_CRYPTO };
+// Memecoins (PONS/MEME/AI) are feedless: priced off the v3 pool TWAP with a short-vs-long deviation band
+// (manipulation guard, like GLD), but NOT off-hours-blocked — they trade 24/7.
+const MEME_BAND_BPS = Number(process.env.MEME_TWAP_BAND_BPS ?? 500); // 5% (memecoins are volatile)
+const MEME_LONG_WINDOW = 1800;  // seconds
+const MEME_SHORT_WINDOW = 300;  // seconds
 // GLD (feedless) manipulation guard: short vs long TWAP must agree within this band.
 const GLD_BAND_BPS = Number(process.env.GLD_TWAP_BAND_BPS ?? 200); // 2%
 const GLD_LONG_WINDOW = 1800; // seconds
@@ -94,6 +103,10 @@ const FEEDS = {
   SPY:   "0x319724394D3A0e3669269846abE664Cd621f9f6A",
   NFLX:  process.env.NFLX_FEED || null, // FACTS said "directory"; absent as of 2026-09-10
   GLD:   null,                          // no Chainlink feed — TWAP-priced
+  WETH:  "0x78F3556b67E17Df817D51Ef5a990cDaF09E8d3A9", // ETH/USD (24/7 crypto feed), FACTS.md
+  PONS:  null,                          // feedless — TWAP-priced (memecoin)
+  MEME:  null,                          // feedless — TWAP-priced (memecoin)
+  AI:    null,                          // feedless — TWAP-priced (memecoin)
 };
 
 // ── Best v3 pools (FACTS.md). `fee` is informational; `observe`/`slot0` do not need it. ───────────
@@ -116,12 +129,21 @@ const POOLS = {
   AMD:   { pool: "0x48D284A2A4d3DC1b3Da08231Fe44317e7e7Aa51f", fee: 3000 },
   NFLX:  { pool: "0x59895C0302F41aEaa129D2fa2442CEc01E7eF45E", fee: 3000 },
   SPY:   { pool: "0xDDCBBa3666f578E3F09516f21Ff85BFee859AB5e", fee: 500 }, // WETH-paired (deep); USDG pool is thin
+  // 24/7 crypto + native coins (verified on-chain 2026-09-14: USDG-paired, single-hop, depth measured).
+  WETH:  { pool: "0x69bfaf19c9f377bb306a89aed9f6b07e2c1a8d9a", fee: 500 },   // WETH/USDG $2.58M (deepest)
+  PONS:  { pool: "0x7a192e71564ec66ee0763e328a3ac274942de4e1", fee: 10000 }, // PONS/USDG $592k
+  MEME:  { pool: "0x5d37b1d887b502594414a82d2cf7d4ef774a8027", fee: 3000 },  // MEME/USDG $40k (thin)
+  AI:    { pool: "0xe547c18f46db55ab788343bcc503f9cf0bd7d564", fee: 10000 }, // AI/USDG $42k (thin)
 };
 
 // Asset class → freshness cutoff (SPEC.md section 6). Everything not listed is an equity.
 const SLOW_ASSETS = new Set(["SGOV", "SLV"]);
+const CRYPTO_ASSETS = new Set(["WETH"]);          // 24/7 Chainlink feed (ETH/USD)
+const MEME_ASSETS = new Set(["PONS", "MEME", "AI"]); // 24/7, feedless, TWAP + band
 function assetClass(sym) {
   if (sym === "GLD") return "gld";
+  if (CRYPTO_ASSETS.has(sym)) return "crypto";
+  if (MEME_ASSETS.has(sym)) return "meme";
   if (SLOW_ASSETS.has(sym)) return "slow";
   return "equity";
 }
@@ -309,12 +331,44 @@ async function gldPrice(now) {
   };
 }
 
+// Memecoin price: feedless, priced off the v3 pool TWAP with a short-vs-long deviation band (the GLD
+// manipulation guard), but 24/7 — no US-market-hours block (off_hours is always false). A band
+// violation surfaces as `stale`, which the loop rejects. Thin pools without expanded TWAP cardinality
+// fall back to spot and are flagged so the loop's own notional caps do the bounding.
+async function memePrice(sym, now) {
+  const [long, short] = await Promise.all([
+    getTwap(sym, MEME_LONG_WINDOW),
+    getTwap(sym, MEME_SHORT_WINDOW),
+  ]);
+  const deviation = long.price > 0 ? Math.abs(short.price - long.price) / long.price : 1;
+  const withinBand = deviation <= MEME_BAND_BPS / 10000;
+  const bandMeaningful = long.twap_available && short.twap_available;
+  const ok = bandMeaningful ? withinBand : true; // no real TWAP → allow with caution (caps bound it)
+  const stale = bandMeaningful && !withinBand;   // band violation → the loop rejects on `stale`
+  let reason;
+  if (bandMeaningful && !withinBand) reason = `${sym} TWAP deviation ${(deviation * 100).toFixed(2)}% exceeds the ${MEME_BAND_BPS / 100}% band; likely manipulation, do not trade.`;
+  else if (!bandMeaningful) reason = `${sym} priced off spot (thin pool, TWAP cardinality not expanded); 24/7 memecoin, trade small with caution.`;
+  else reason = `${sym} priced off the v3 TWAP within the ${MEME_BAND_BPS / 100}% band; 24/7 memecoin.`;
+  return {
+    asset: sym, source: "twap", feed: null, class: "meme",
+    price: long.price, price_usdg: long.price, quote: long.quote,
+    long_window_seconds: MEME_LONG_WINDOW, short_window_seconds: MEME_SHORT_WINDOW,
+    short_twap_price: short.price,
+    deviation, deviation_band_bps: MEME_BAND_BPS, within_band: withinBand,
+    twap_available: bandMeaningful,
+    updated_at: now,        // TWAP observation == current block; keeps the loop's age check from misfiring
+    stale, off_hours: false, // memecoins trade 24/7
+    market_open: true, now, ok_to_trade: ok, reason,
+  };
+}
+
 async function getPrice(symIn) {
   const sym = assertSupported(symIn);
   const cls = assetClass(sym);
   const now = await blockNow();
 
   if (cls === "gld") return gldPrice(now);
+  if (cls === "meme") return memePrice(sym, now);
 
   const feed = FEEDS[sym];
   if (!feed) {
@@ -343,9 +397,10 @@ async function getPrice(symIn) {
   const fresh = priceValid && staleness <= cutoff;
   const price = Number(answer) / 10 ** dec;
   // Loop price contract (loop.mjs freshnessOk): `stale` = freshness cutoff exceeded / feed unusable;
-  // `off_hours` = US equity market closed, from the reference-equity-feed freshness signal.
+  // `off_hours` = US equity market closed, from the reference-equity-feed freshness signal. Crypto (ETH)
+  // has its own 24/7 feed, so it is never off-hours; only its own staleness gates it.
   const stale = !fresh;
-  const off_hours = !status.market_open;
+  const off_hours = cls === "crypto" ? false : !status.market_open;
 
   let reason;
   if (!priceValid) reason = `feed returned a non-positive answer (${answer}); do not trade.`;
@@ -366,18 +421,25 @@ async function getPrice(symIn) {
 function listAssets() {
   return {
     chain_id: CHAIN_ID,
-    freshness_cutoffs: { equity_seconds: CUTOFF_EQUITY, slow_seconds: CUTOFF_SLOW, gld: "off-hours-blocked (TWAP-priced)" },
+    freshness_cutoffs: {
+      equity_seconds: CUTOFF_EQUITY, slow_seconds: CUTOFF_SLOW, crypto_seconds: CUTOFF_CRYPTO,
+      gld: "off-hours-blocked (TWAP-priced)", meme: "24/7 (TWAP-priced, deviation-band guarded)",
+    },
     market_reference: MARKET_REFERENCE,
-    assets: SUPPORTED.map((sym) => ({
+    assets: SUPPORTED.map((sym) => {
+      const cls = assetClass(sym);
+      return {
       asset: sym,
-      class: assetClass(sym),
-      cutoff_seconds: assetClass(sym) === "gld" ? null : CUTOFFS[assetClass(sym)],
+      class: cls,
+      always_on: cls === "crypto" || cls === "meme", // trades 24/7 (no US-market-hours block)
+      cutoff_seconds: cls === "gld" || cls === "meme" ? null : CUTOFFS[cls],
       has_feed: Boolean(FEEDS[sym]),
       feed: FEEDS[sym],
       pool: POOLS[sym].pool,
       pool_fee: POOLS[sym].fee,
       token: TOKENS[sym],
-    })),
+      };
+    }),
   };
 }
 

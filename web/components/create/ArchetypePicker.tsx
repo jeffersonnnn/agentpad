@@ -31,7 +31,25 @@ export function ArchetypePicker({
             onClick={() => onChange(a.slug)}
             disabled={disabled}
           >
-            <span className={styles.archetypeName}>{a.label}</span>
+            <span className={styles.archetypeName}>
+              {a.label}
+              <span
+                style={{
+                  marginLeft: 8,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.03em",
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  verticalAlign: "middle",
+                  ...(a.alwaysOn
+                    ? { color: "hsl(201 100% 10%)", background: "hsl(199 92% 74%)" }
+                    : { color: "hsl(240 5% 66%)", background: "hsl(0 0% 100% / 0.08)" }),
+                }}
+              >
+                {a.alwaysOn ? "24/7" : "US hours"}
+              </span>
+            </span>
             <span className={styles.archetypeNotes}>{a.notes}</span>
             <span className={styles.archetypeAssets}>
               {a.assets.map((t) => (

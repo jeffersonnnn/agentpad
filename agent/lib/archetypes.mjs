@@ -28,6 +28,12 @@ export const TOKENS = {
   AMD:  "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
   NFLX: "0xE0444EF8BF4eD74f74FD73686e2ddF4C1c5591E8",
   SPY:  "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C",
+  // --- 24/7 crypto + native coins (roadmap: 24/7 trading). Verified on-chain 2026-09-14 (pool depth,
+  //     decimals, fee tier). ETH has a 24/7 Chainlink feed; PONS/MEME/AI are TWAP-priced (feedless),
+  //     guarded by a short-vs-long TWAP deviation band like GLD. All 18-dec, USDG-paired, single-hop. ---
+  PONS: "0x39dBED3a2bd333467115dE45665cC57F813C4571", // 18 dec — PONS ecosystem token, $592k USDG pool (fee 10000)
+  MEME: "0x385F4f8ae47651ce5F58F5265395a669f8281e18", // 18 dec — $40k USDG pool (fee 3000); small size only
+  AI:   "0x2E8c31162b855A2ffa90F6F8634643Ad6F111e18", // 18 dec — $42k USDG pool (fee 10000); small size only
 };
 
 // SwapRouter02 (Uniswap v3) — the only DEX target the agent trades through (FACTS.md).
@@ -52,7 +58,15 @@ export const ARCHETYPES = {
   "index":      { label: "Index",              assets: ["SPY", "QQQ", "SGOV"] },
   "meme-stock": { label: "Meme-stock",         assets: ["GME", "MSTR", "USO"] },
   "yield":      { label: "Yield / Cash",       assets: ["SGOV"] },
+  // 24/7 archetype: crypto + native coins that trade around the clock (no US-market-hours gate). ETH is
+  // the deep, oracle-backed anchor; PONS/MEME/AI are the chain's most liquid native coins (TWAP-priced).
+  "degen":      { label: "Degen (24/7)",       assets: ["WETH", "PONS", "MEME", "AI"] },
 };
+
+// Archetypes whose assets trade 24/7 (no US-equity-hours block). Used for UI labelling and to explain
+// the difference to creators. The trading engine already permits these via their own price path
+// (ETH: a 24/7 Chainlink feed; PONS/MEME/AI: a 24/7 TWAP with a deviation-band guard).
+export const ALWAYS_ON_ARCHETYPES = new Set(["degen"]);
 
 /**
  * Resolve an archetype key into the concrete allowed-token set for a session key.

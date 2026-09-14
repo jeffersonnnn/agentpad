@@ -38,13 +38,14 @@ export const QUOTE_ASSETS: { value: QuoteAsset; label: string }[] = [
 
 // ── Strategy archetype templates (SPEC.md section 4) ──────────────────────────────────────────────
 // The slug is what api/launch.mjs stores in agents.archetype (e.g. --archetype=tech-bull).
-export type ArchetypeSlug = "macro" | "tech-bull" | "hard-money" | "index" | "meme-stock" | "yield";
+export type ArchetypeSlug = "macro" | "tech-bull" | "hard-money" | "index" | "meme-stock" | "yield" | "degen";
 
 export interface Archetype {
   slug: ArchetypeSlug;
   label: string;
   assets: string[]; // allowed-asset tickers (subset of the ~17 tradeable in FACTS.md) + USDG
   notes: string;
+  alwaysOn?: boolean; // trades 24/7 (no US-market-hours block) — badged in the UI
 }
 
 export const ARCHETYPES: Archetype[] = [
@@ -54,7 +55,11 @@ export const ARCHETYPES: Archetype[] = [
   { slug: "index", label: "Index", assets: ["SPY", "QQQ", "SGOV"], notes: "broad ETFs" },
   { slug: "meme-stock", label: "Meme-stock", assets: ["GME", "MSTR", "USO"], notes: "high volatility" },
   { slug: "yield", label: "Yield / Cash", assets: ["SGOV", "USDG"], notes: "parks for yield, minimal trading" },
+  { slug: "degen", label: "Degen (24/7)", assets: ["ETH", "PONS", "MEME", "AI", "USDG"], notes: "trades around the clock: ETH plus the chain's most liquid coins. Higher risk.", alwaysOn: true },
 ];
+
+// US-market-hours note for the non-24/7 archetypes (shown in the create UI alongside the 24/7 badge).
+export const US_HOURS_NOTE = "Trades tokenized US stocks/ETFs; active during US market hours.";
 
 export const ARCHETYPE_SLUGS = ARCHETYPES.map((a) => a.slug);
 
