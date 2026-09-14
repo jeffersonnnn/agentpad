@@ -686,7 +686,11 @@ export function makeOpenRouterCaller({ apiKey, model }) {
   return async function callModel(messages, tools) {
     // Only advertise tools (and force tool_choice) when there are tools. A plain text completion
     // (e.g. writing a reaction) passes no tools, so it must not send tool_choice.
-    const body = { model, messages };
+    // Cap output tokens: a trade decision + narration needs a small budget, but the model's DEFAULT max
+    // is 64k, and OpenRouter reserves credit for the full max_tokens per call — which drains the balance
+    // and 402s once it dips (observed 2026-09-14). An explicit cap fixes that and cuts cost. Override
+    // with AGENT_MAX_TOKENS.
+    const body = { model, messages, max_tokens: Number(process.env.AGENT_MAX_TOKENS || 8000) };
     if (tools && tools.length) {
       body.tools = tools;
       body.tool_choice = "auto";

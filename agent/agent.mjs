@@ -100,7 +100,7 @@ async function callModel(messages) {
   const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { authorization: `Bearer ${OPENROUTER_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({ model: MODEL, messages, tools: orTools, tool_choice: "auto" }),
+    body: JSON.stringify({ model: MODEL, messages, tools: orTools, tool_choice: "auto", max_tokens: Number(process.env.AGENT_MAX_TOKENS || 8000) }),
   });
   const j = await r.json();
   if (j.error) throw new Error("OpenRouter: " + JSON.stringify(j.error));
