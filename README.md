@@ -14,6 +14,60 @@ its treasury.
 
 ---
 
+## ✅ LATEST - SOURCE OF TRUTH (2026-09-14)
+
+Read this first. It supersedes the 2026-09-13 section below (infra details there are still accurate:
+DigitalOcean droplet `167.99.147.119`, `/opt/agentpad`, 4 pm2 crons + agentpad-alerts). No em dashes.
+
+### The headline: the platform TRADES autonomously, proven on-chain
+The first real trades executed. Agent `51363ef5` (macro) reasoned, cleared the freshness gate, and
+bought **SGOV** (tx `0x790616b8...`, block 62385342, SUCCESS) and **SLV** (tx `0xabb0fe85...`, block
+62387071, SUCCESS) through its own ERC-4337 account. Treasury `$13.41 -> $8.05 USDG`, positions
+recorded. Explorer: `https://robinhoodchain.blockscout.com`. The full loop is proven end to end:
+fees -> treasury -> reason (OpenRouter) -> freshness gate -> real swap via session key -> position.
+
+### Shipped 2026-09-13/14 (all live, all committed to main)
+- **Follow + Alerts** (roadmap 3): follow an agent, get pinged on trades/distributions. In-app bell
+  (always on) + email (Resend) + Telegram (Bot API), opt-in. Outbox dispatcher `deploy/alerts-dispatch.mjs`
+  (pm2 `agentpad-alerts`, */2) reads the `feed` table past a watermark; idempotent, forward-only. Tables
+  `follows`/`notifications`/`alert_cursor` (self-creating). Signature-gated writes.
+- **RPC proxy** (`web/app/api/rpc`): browser reads go through the paid Alchemy node server-side (key never
+  in the bundle). Fixed the launch "resolving" stall (public RPC timeouts). wagmi points at `/api/rpc`.
+- **Observatory flood fix**: `web/lib/observatory-noise.ts` drops wallet-extension noise (TronLink) on
+  client + server; purged ~11.8k junk rows.
+- **Square discovery engine** (roadmap 5): rank by followers/active/profit/ROI/win-rate/trades/age, filter
+  by archetype, compare two agents side by side (shareable `?a=&b=`). Metrics computed in one SQL
+  aggregate (`web/lib/server/square.ts`).
+- **24/7 Degen archetype**: the chain trades 24/7 but every asset was a US-hours equity (Chainlink feed
+  stops off-hours). Added a `degen` archetype: **ETH** (WETH, 24/7 ETH/USD feed, $2.58M pool) + **PONS**
+  ($592k), **MEME**, **AI** (feedless, TWAP + 5% deviation band, 24/7). `assetClass` "crypto"/"meme" in
+  `market.mjs`; loop `FEEDLESS`/`CRYPTO_FEED` updated. UI badges 24/7 vs "US hours". Verified tradeable
+  on a weekend while stocks were blocked.
+- **OpenRouter max_tokens cap** (`agent/loop.mjs`): was reserving the model's 64k default per call, which
+  drained credits and 402'd. Capped to 8000 (`AGENT_MAX_TOKENS`), ~8x cheaper. Reasoning was down ~21:00
+  to ~00:30 on credit exhaustion; top up at openrouter.ai/settings/credits (no auto low-balance alert yet).
+
+### Current on-chain state (2026-09-14)
+- **4 live agents** (18 stuck "deploying" failed-launch rows were deleted 2026-09-14; they held no funds):
+  | id | archetype | account | ETH | USDG | key | note |
+  |----|-----------|---------|-----|------|-----|------|
+  | 51363ef5 | macro | 0x94467CD676Cd3aB2564756c50F88C74200dc3593 | 0.0013 | $8.05 | yes | **trading**; holds SGOV+SLV |
+  | 1748558d | tech-bull | 0x8167fA61595631A82e786c822397C477Ec9aEfD5 | 0.202 | $200 | yes | loaded; waits for US hours |
+  | 1241af6b | tech-bull | 0xC21b56Bf2A1aae49798c267BcCa7998047f20209 | 0.002 | $0 | yes | needs USDG |
+  | dc9c777d | macro | 0x5475C639D816C9f638C317D81D1063Df4AF1c31e | 0 | $0 | no | needs ETH gas + USDG |
+- Trades: 2 (SGOV, SLV). Distributions: 0 (needs a profitable sell above the high-water mark). Follows: 0.
+
+### Next (priority)
+1. **First distribution** - agent must sell above the high-water mark, then the keeper pays holders.
+2. **Fund** 1241af6b (USDG) and dc9c777d (ETH gas + USDG) so more agents trade. Send USDG
+   (`0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, 6 dec) to the accounts above.
+3. **OpenRouter low-balance alert** in the Observatory (prevent silent stalls).
+4. **Launch a Degen agent** to demo 24/7 trading live.
+5. **Withdraw / sweep** capability to recover agent-account funds on shutdown (owner-op; scoped, not built).
+6. **Agent control panel** (pause/resume, distribution policy, X keys, top up, sweep) - scoped, not built.
+
+---
+
 ## ✅ WHERE WE ARE - SOURCE OF TRUTH (2026-09-13)
 
 The full platform is **live in production** at **https://slingshotprotocol.online**, now on a
