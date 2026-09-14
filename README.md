@@ -44,27 +44,60 @@ fees -> treasury -> reason (OpenRouter) -> freshness gate -> real swap via sessi
   `market.mjs`; loop `FEEDLESS`/`CRYPTO_FEED` updated. UI badges 24/7 vs "US hours". Verified tradeable
   on a weekend while stocks were blocked.
 - **OpenRouter max_tokens cap** (`agent/loop.mjs`): was reserving the model's 64k default per call, which
-  drained credits and 402'd. Capped to 8000 (`AGENT_MAX_TOKENS`), ~8x cheaper. Reasoning was down ~21:00
-  to ~00:30 on credit exhaustion; top up at openrouter.ai/settings/credits (no auto low-balance alert yet).
+  drained credits and 402'd. Capped to 8000 (`AGENT_MAX_TOKENS`), ~8x cheaper. Credits were topped up
+  2026-09-14 and reasoning is live again (all 4 agents, `exit=0` passes). Still no auto low-balance alert
+  in the Observatory (a recommended next item, so this does not silently stall again).
+- **Agent control panel** (`web/components/agent/CreatorSettings.tsx`): a creator-gated "Agent controls"
+  card on the agent page, every write wallet-signed via `web/lib/server/creator-auth.ts`. Three controls:
+  - **Pause / resume** - new `agents.paused` column (separate from the status enum; the keeper flips
+    status live<->sleeping on its own). `deploy/reason-all.mjs` + `deploy/grant-ready.mjs` skip
+    `paused IS NOT TRUE`. `POST /api/agents/:id/control`.
+  - **Payout policy** - `POST /api/agents/:id/distribution` upserts `distribution_config` (mode/rate/
+    cadence) the keeper reads; rate entered as a percent.
+  - **Withdraw / sweep** - `sweepAgent()` in `api/launch.mjs` recovers USDG + positions to a destination
+    (default the creator) via the derived owner key, guarded by an owner-derivation abort. ETH left as
+    gas. `GET /api/agents/:id/sweep` dry-runs the plan (public reads); `POST` executes (creator-signed).
+    Tested to the abort; a real execution (correct owner) moves funds and is user-triggered.
+  - Sits beside the existing "Fund & manage" (top up + claim fees) and "Connect X" cards.
 
 ### Current on-chain state (2026-09-14)
-- **4 live agents** (18 stuck "deploying" failed-launch rows were deleted 2026-09-14; they held no funds):
+- **4 live agents** (18 stuck "deploying" failed-launch rows were deleted 2026-09-14; they held no funds).
+  Live-agent funding addresses (USDG token `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, 6 dec):
   | id | archetype | account | ETH | USDG | key | note |
   |----|-----------|---------|-----|------|-----|------|
-  | 51363ef5 | macro | 0x94467CD676Cd3aB2564756c50F88C74200dc3593 | 0.0013 | $8.05 | yes | **trading**; holds SGOV+SLV |
-  | 1748558d | tech-bull | 0x8167fA61595631A82e786c822397C477Ec9aEfD5 | 0.202 | $200 | yes | loaded; waits for US hours |
+  | 51363ef5 | macro | 0x94467CD676Cd3aB2564756c50F88C74200dc3593 | ~0.0013 | ~$8.05 | yes | **traded** SGOV+SLV; holds both |
+  | 1748558d | tech-bull | 0x8167fA61595631A82e786c822397C477Ec9aEfD5 | 0.202 | $200 | yes | loaded; trades in US market hours |
   | 1241af6b | tech-bull | 0xC21b56Bf2A1aae49798c267BcCa7998047f20209 | 0.002 | $0 | yes | needs USDG |
   | dc9c777d | macro | 0x5475C639D816C9f638C317D81D1063Df4AF1c31e | 0 | $0 | no | needs ETH gas + USDG |
-- Trades: 2 (SGOV, SLV). Distributions: 0 (needs a profitable sell above the high-water mark). Follows: 0.
+- Trades: 2 real, on-chain (SGOV, SLV). Distributions: 0 (needs a profitable sell above the high-water
+  mark, then the keeper pays holders). Follows: 0. Reasoning: live, all 4 agents.
+- Deployer/owner/relayer: `0x04752Da4639a436416a94c436526aF34D7fbC61c` (`DEPLOYER_KEY`, repo-root `.env`).
+- Platform token $SlingShot `0xfc08fcdf0472d5cf97382fbd527cf50399e2626a` (curve `0xA29f5F68...0e9`).
+
+### Deploy flow (unchanged)
+`ssh root@167.99.147.119` -> `cd /opt/agentpad && git pull` -> for web changes `cd web && npm run build`
+then `pm2 reload agentpad-web`; agent/backend code (`api/`, `agent/`, `deploy/`) is picked up by the
+crons on their next fire (no web rebuild). Same shared Neon DB for laptop + box. Local: `cd web && PORT=3010
+npm run start` after a build. DB schema changes: apply additive ALTERs to the live Neon DB directly
+(schema.sql is not auto-applied); AGENT_COLS reads must not reference a column that is not yet on the DB.
 
 ### Next (priority)
-1. **First distribution** - agent must sell above the high-water mark, then the keeper pays holders.
-2. **Fund** 1241af6b (USDG) and dc9c777d (ETH gas + USDG) so more agents trade. Send USDG
-   (`0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, 6 dec) to the accounts above.
-3. **OpenRouter low-balance alert** in the Observatory (prevent silent stalls).
+1. **First distribution** - an agent must sell above the high-water mark, then the keeper pays holders.
+   The headline milestone still open. Needs price movement + a sell (or a take-profit rule, below).
+2. **Fund** 1241af6b (USDG) and dc9c777d (ETH gas + USDG) so more agents trade (addresses above).
+3. **OpenRouter low-balance alert** in the Observatory (prevent silent reasoning stalls).
 4. **Launch a Degen agent** to demo 24/7 trading live.
-5. **Withdraw / sweep** capability to recover agent-account funds on shutdown (owner-op; scoped, not built).
-6. **Agent control panel** (pause/resume, distribution policy, X keys, top up, sweep) - scoped, not built.
+5. Trading-arm ideas (not built): take-profit/stop-loss rules; auto gas-from-fees top-up; paper/dry-run
+   mode; realized-PnL + HWM on the agent page; richer market signals. Control-panel follow-ups: sell
+   positions to USDG before a sweep; demonstrate the pause-skip on a live reasoner pass.
+6. **Standing gates:** rotate `DEPLOYER_KEY`; verify live X posting; security/legal review. Remaining
+   roadmap: one-click claim + distribution history (roadmap 2); real chart + trade history (roadmap 4).
+
+### /brag videos this session (gitignored, delivered to the user)
+- `brag-output-2026-09-13-*` (My Agents, Flywheel, X connect), `brag-output-2026-09-13-204008` (My Agents),
+  `brag-output-2026-09-13-230232` (The Square), `brag-output-2026-09-14-071157` (Agent control panel).
+- Proof shared for the first trades: explorer tx `0x790616b8...` (SGOV), `0xabb0fe85...` (SLV), account
+  `0x94467CD676Cd3aB2564756c50F88C74200dc3593` on `https://robinhoodchain.blockscout.com`.
 
 ---
 
