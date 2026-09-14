@@ -8,7 +8,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getAgent, getAgentPositions } from "@/lib/api";
+import { getAgent, getAgentPositions, getTradeRules, getAgentPnl } from "@/lib/api";
 import { ARCHETYPES } from "@/lib/constants";
 import { AgentHeader } from "@/components/agent/AgentHeader";
 import { ChartCard } from "@/components/agent/ChartCard";
@@ -21,7 +21,9 @@ import { TradePanel } from "@/components/agent/TradePanel";
 import { TreasuryPanel } from "@/components/agent/TreasuryPanel";
 import { ReasoningFeed } from "@/components/agent/ReasoningFeed";
 import { TradesPanel } from "@/components/agent/TradesPanel";
-import { DistributionsPanel } from "@/components/agent/DistributionsPanel";
+import { PnlCard } from "@/components/agent/PnlCard";
+import { ClaimCard } from "@/components/agent/ClaimCard";
+import { DistributionHistory } from "@/components/agent/DistributionHistory";
 import { XConnectPanel } from "@/components/agent/XConnectPanel";
 import { ConnectButton } from "@/components/ConnectButton";
 import { ArchetypeChip, Card, ErrorNote, Skeleton, styles } from "@/components/agent/ui";
@@ -114,6 +116,16 @@ function AgentView({
     queryFn: () => getAgentPositions(agentId),
     refetchInterval: 30_000,
   });
+  const rulesQ = useQuery({
+    queryKey: ["rules", agentId],
+    queryFn: () => getTradeRules(agentId),
+    refetchInterval: 60_000,
+  });
+  const pnlQ = useQuery({
+    queryKey: ["pnl", agentId],
+    queryFn: () => getAgentPnl(agentId),
+    refetchInterval: 30_000,
+  });
 
   return (
     <>
@@ -130,8 +142,10 @@ function AgentView({
           <MarketCard agent={agent} />
           <TreasuryPanel agent={agent} positions={positionsQ.data ?? []} />
           <OwnerActions agent={agent} />
-          <CreatorSettings agent={agent} distribution={distribution} />
-          <DistributionsPanel agent={agent} config={distribution} />
+          <CreatorSettings agent={agent} distribution={distribution} rules={rulesQ.data ?? null} />
+          {pnlQ.data && <PnlCard pnl={pnlQ.data} />}
+          <ClaimCard agent={agent} />
+          <DistributionHistory agent={agent} />
           <StrategyCard archetype={agent.archetype} persona={agent.persona_prompt} />
           <XConnectPanel agent={agent} />
         </div>

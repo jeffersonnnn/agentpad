@@ -249,6 +249,49 @@ export function checkTrade({ fromSymbol, toSymbol, amountInWhole, quotedOutWhole
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
+// Take-profit / stop-loss auto-exit (pure decision). Given the agent positions, the ground-truth
+// snapshot, and the creator rules, return the sell intents that the rules trigger. Pure and
+// unit-testable, same style as checkTrade. It NEVER moves funds; maybeAutoExit dispatches the sells.
+//
+// For each RISK position (symbol != "USDG") with cost_basis_usdg > 0:
+//   pnlBps = round((valueUsdg - costBasisWhole) / costBasisWhole * 10000)
+//   - take-profit: rules.take_profit_bps > 0 and pnlBps >= take_profit_bps -> sell the full holding.
+//   - stop-loss:   rules.stop_loss_bps  > 0 and pnlBps <= -stop_loss_bps   -> sell the full holding.
+//   take-profit is checked first. 0 bps means the rule is off.
+//
+// The position asset joins to the snapshot by SYMBOL. buildSnapshot keys positions by symbol, so the
+// position asset (an address or a symbol) is normalized with symbolFromArg before the join.
+//
+// @param {object} p
+// @param {Array<{asset:string, cost_basis_usdg:number|string}>} p.positions  store.getPositions rows
+// @param {object} p.snapshot  { positions: { SYM: { amountWhole, valueUsdg } }, ... }
+// @param {{take_profit_bps:number, stop_loss_bps:number}} p.rules
+// @returns {Array<{symbol:string, reason:"take-profit"|"stop-loss", pnlBps:number}>}
+export function decideAutoExit({ positions, snapshot, rules }) {
+  const tp = Number(rules?.take_profit_bps) || 0;
+  const sl = Number(rules?.stop_loss_bps) || 0;
+  const intents = [];
+  if (tp <= 0 && sl <= 0) return intents; // both rules off: nothing to do
+  const snapPositions = snapshot?.positions || {};
+  for (const row of positions || []) {
+    const symbol = symbolFromArg(row.asset);
+    if (!symbol || symbol === "USDG") continue; // only risk positions
+    const costBasisWhole = Number(row.cost_basis_usdg);
+    if (!(costBasisWhole > 0)) continue; // no cost basis: cannot compute PnL, skip
+    const snap = snapPositions[symbol];
+    const valueUsdg = Number(snap?.valueUsdg);
+    if (!Number.isFinite(valueUsdg)) continue; // cannot value the holding: skip (never force a sell)
+    const pnlBps = Math.round(((valueUsdg - costBasisWhole) / costBasisWhole) * 10000);
+    if (tp > 0 && pnlBps >= tp) {
+      intents.push({ symbol, reason: "take-profit", pnlBps });
+    } else if (sl > 0 && pnlBps <= -sl) {
+      intents.push({ symbol, reason: "stop-loss", pnlBps });
+    }
+  }
+  return intents;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
 // System prompt (archetype template + persona) and memory injection.
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 export function buildSystemPrompt({ archetype, persona }) {
@@ -361,6 +404,25 @@ export function createFileStore(dataDir) {
     async getAgentStatus() {
       return null;
     },
+
+    // Take-profit / stop-loss rules, file-backed (same shape as the pg store). A missing file means
+    // both rules are off (0 bps).
+    async getTradeRules(agentId) {
+      const r = read(fileFor(agentId, "rules"), null);
+      return {
+        take_profit_bps: Number(r?.take_profit_bps ?? 0),
+        stop_loss_bps: Number(r?.stop_loss_bps ?? 0),
+      };
+    },
+    async upsertTradeRules(agentId, { take_profit_bps, stop_loss_bps }) {
+      const row = {
+        take_profit_bps: Number(take_profit_bps) || 0,
+        stop_loss_bps: Number(stop_loss_bps) || 0,
+        updated_at: new Date().toISOString(),
+      };
+      write(fileFor(agentId, "rules"), row);
+      return { take_profit_bps: row.take_profit_bps, stop_loss_bps: row.stop_loss_bps };
+    },
   };
 }
 
@@ -439,6 +501,36 @@ export function createPgStore(pool) {
     async getAgentStatus(agentId) {
       const { rows } = await pool.query(`SELECT status FROM agents WHERE id = $1`, [agentId]);
       return rows[0]?.status ?? null;
+    },
+
+    // ── Take-profit / stop-loss rules (creator-set; drive the auto-exit). One row per agent in
+    //    trade_rules; a missing row (or 0 bps) means the rule is off. Read whole bps integers. ──────
+    async getTradeRules(agentId) {
+      const { rows } = await pool.query(
+        `SELECT take_profit_bps, stop_loss_bps FROM trade_rules WHERE agent_id = $1`,
+        [agentId],
+      );
+      const r = rows[0];
+      return {
+        take_profit_bps: Number(r?.take_profit_bps ?? 0),
+        stop_loss_bps: Number(r?.stop_loss_bps ?? 0),
+      };
+    },
+    async upsertTradeRules(agentId, { take_profit_bps, stop_loss_bps }) {
+      const tp = Number(take_profit_bps) || 0;
+      const sl = Number(stop_loss_bps) || 0;
+      const { rows } = await pool.query(
+        `INSERT INTO trade_rules (agent_id, take_profit_bps, stop_loss_bps, updated_at)
+         VALUES ($1, $2, $3, now())
+         ON CONFLICT (agent_id) DO UPDATE
+           SET take_profit_bps = EXCLUDED.take_profit_bps,
+               stop_loss_bps   = EXCLUDED.stop_loss_bps,
+               updated_at      = now()
+         RETURNING take_profit_bps, stop_loss_bps`,
+        [agentId, tp, sl],
+      );
+      const r = rows[0];
+      return { take_profit_bps: Number(r.take_profit_bps), stop_loss_bps: Number(r.stop_loss_bps) };
     },
 
     // ── Board awareness (ADR 0005 / SPEC 11) — READ-ONLY views of OTHER agents. The loop wraps the
@@ -1006,6 +1098,75 @@ async function handleGuardedTrade({ mcp, store, agentId, allowedSymbols, args })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
+// Auto-exit wrapper (take-profit / stop-loss). Reads the creator rules, builds the ground-truth
+// snapshot + positions, asks decideAutoExit which holdings to close, and dispatches each sell into
+// USDG through the SAME guarded trade path (handleGuardedTrade) that the model's trades use. The full
+// holding is sold. A "thought" that explains the auto-exit is recorded BEFORE each dispatch, so holders
+// see the reason first. This is a REALIZING leg: handleGuardedTrade banks meta.realized_usdg, which the
+// keeper's high-water-mark engine totals to drive the first distribution.
+//
+// Non-fatal by contract: every failure is caught and returned in the summary, never thrown, so the
+// caller (main) can wrap it and never break the trading loop. A paused agent is already excluded
+// upstream by deploy/reason-all.mjs, so no extra pause check is needed here.
+export async function maybeAutoExit({ config, store, mcp, log = () => {} }) {
+  const { agentId, archetype } = config;
+  if (!store.getTradeRules) return { skipped: "store-unsupported" }; // older store without the method
+
+  let rules;
+  try {
+    rules = await store.getTradeRules(agentId);
+  } catch (e) {
+    log(`auto-exit: rules read failed (non-fatal): ${e.message}`);
+    return { skipped: `rules read failed: ${e.message}` };
+  }
+  const tp = Number(rules?.take_profit_bps) || 0;
+  const sl = Number(rules?.stop_loss_bps) || 0;
+  if (tp <= 0 && sl <= 0) return { skipped: "no rules" }; // both rules off
+
+  let snapshot, positions;
+  try {
+    snapshot = await buildSnapshot(mcp);
+    positions = await store.getPositions(agentId);
+  } catch (e) {
+    log(`auto-exit: ground-truth read failed (non-fatal): ${e.message}`);
+    return { skipped: `ground-truth read failed: ${e.message}` };
+  }
+  if (!snapshot) return { skipped: "no snapshot" };
+
+  const intents = decideAutoExit({ positions, snapshot, rules });
+  if (!intents.length) return { checked: true, exits: [] };
+
+  const a = resolveArchetype(archetype);
+  const exits = [];
+  for (const intent of intents) {
+    // The full holding to sell, read from the ground-truth snapshot (never the model, never memory).
+    const held = Number(snapshot.positions?.[intent.symbol]?.amountWhole) || 0;
+    if (!(held > 0)) continue; // nothing to sell on-chain: skip
+    try {
+      // Record the reason BEFORE the dispatch so holders read the "why" first.
+      await store.appendFeed(agentId, {
+        kind: "thought",
+        text: `Auto-exit rule fired: ${intent.reason} for ${intent.symbol} at `
+          + `${(intent.pnlBps / 100).toFixed(2)}% unrealized PnL. Selling the full ${intent.symbol} `
+          + `holding into USDG.`,
+        meta: { auto_exit: true, symbol: intent.symbol, reason: intent.reason, pnl_bps: intent.pnlBps },
+      });
+      const result = await handleGuardedTrade({
+        mcp, store, agentId, allowedSymbols: a.symbols,
+        args: { from_symbol: intent.symbol, to_symbol: "USDG", amount: held },
+      });
+      exits.push({ symbol: intent.symbol, reason: intent.reason, pnlBps: intent.pnlBps, result });
+      log(`auto-exit ${intent.reason} ${intent.symbol} (pnl ${intent.pnlBps}bps): `
+        + `${result?.ok ? "executed" : "blocked/not executed"}`);
+    } catch (e) {
+      log(`auto-exit ${intent.symbol} failed (non-fatal): ${e.message}`);
+      exits.push({ symbol: intent.symbol, reason: intent.reason, pnlBps: intent.pnlBps, error: e.message });
+    }
+  }
+  return { checked: true, exits };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
 // main(): wire real deps from env and run one pass (or loop on an interval).
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 function loadPersona() {
@@ -1111,6 +1272,15 @@ async function main() {
         console.log(`  [${new Date().toISOString()}] skip pass: agent status=${status}`);
       } else {
         console.log(`\n=== AGENT ${agentId} (${config.archetype}) run @ ${new Date().toISOString()} ===`);
+        // Auto-exit (take-profit / stop-loss) BEFORE the reasoning pass, so a rule-driven sell realizes
+        // first. Wrapped so a failure here never breaks the trading loop (the agent is not paused here;
+        // deploy/reason-all.mjs already excluded paused agents upstream).
+        try {
+          const ax = await maybeAutoExit({ config, store, mcp, log });
+          if (ax?.exits?.length) log(`auto-exit: ${ax.exits.length} sell intent(s) processed`);
+        } catch (e) {
+          log(`auto-exit step failed (non-fatal): ${e.message}`);
+        }
         const res = await runAgentOnce({ config, store, mcp, callModel, log });
         console.log(`  run finished=${res.finished} steps=${res.steps}`);
         // After trading/narrating, maybe react to another agent (bounded, public; ADR 0005 / SPEC 11.3).

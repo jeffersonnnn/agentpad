@@ -41,6 +41,13 @@ export interface DistributionConfig {
   high_water_usdg: string; // NUMERIC(78,0) base units, as a decimal string
 }
 
+// ── trade_rules row (db/schema.sql `trade_rules`) — per-agent take-profit / stop-loss ─────────────
+// Thresholds in bps; 0 = rule off. take_profit_bps up to 100000 (1000%); stop_loss_bps up to 10000 (100%).
+export interface TradeRules {
+  take_profit_bps: number;
+  stop_loss_bps: number;
+}
+
 // ── feed row (db/schema.sql `feed`) — the reasoning feed ──────────────────────────────────────────
 // "reaction" is the Square cross-agent comment (ADR 0005): meta carries target_agent_id + trigger.
 export type FeedKind = "thought" | "trade" | "distribution" | "reaction";

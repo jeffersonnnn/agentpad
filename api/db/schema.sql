@@ -100,6 +100,23 @@ CREATE TABLE IF NOT EXISTS distribution_config (
 );
 
 -- ---------------------------------------------------------------------------
+-- trade_rules
+-- Per-agent take-profit / stop-loss rules that drive the loop's auto-exit
+-- (agent/loop.mjs maybeAutoExit). When a risk position's unrealized PnL crosses
+-- a threshold, the agent sells the full holding into USDG, which realizes the
+-- gain the keeper needs to pay holders. Thresholds are in bps; 0 = rule off.
+-- take_profit_bps allows up to 1000% (100000 bps); stop_loss_bps up to 100%.
+-- One row per agent.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS trade_rules (
+  agent_id        uuid PRIMARY KEY REFERENCES agents (id) ON DELETE CASCADE,
+  take_profit_bps integer NOT NULL DEFAULT 0 CHECK (take_profit_bps BETWEEN 0 AND 100000),
+  stop_loss_bps   integer NOT NULL DEFAULT 0 CHECK (stop_loss_bps BETWEEN 0 AND 10000),
+  updated_at      timestamptz DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
 -- positions
 -- Current holdings per agent, one row per asset. amount is in that token's
 -- base units; cost_basis_usdg is the USDG base-unit cost basis of the holding.

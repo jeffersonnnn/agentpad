@@ -9,13 +9,14 @@ import { useMemo, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Hex } from "viem";
-import type { Agent, DistributionConfig } from "@/lib/types";
+import type { Agent, DistributionConfig, TradeRules } from "@/lib/types";
 import {
   controlAgent, controlMessage,
   updateDistribution, distributionMessage,
   previewSweep, executeSweep, sweepMessage, type SweepPlan,
 } from "@/lib/api";
 import { Card, CopyAddress, styles } from "./ui";
+import { TradeRulesControl } from "./TradeRulesControl";
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "9px 11px", borderRadius: 9, border: "1px solid var(--border)",
@@ -24,7 +25,7 @@ const inputStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = { fontSize: 12.5, color: "var(--muted)", fontWeight: 600, marginBottom: 5, display: "block" };
 const rowStyle: React.CSSProperties = { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 };
 
-export function CreatorSettings({ agent, distribution }: { agent: Agent; distribution: DistributionConfig | null }) {
+export function CreatorSettings({ agent, distribution, rules }: { agent: Agent; distribution: DistributionConfig | null; rules: TradeRules | null }) {
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const qc = useQueryClient();
@@ -123,6 +124,9 @@ export function CreatorSettings({ agent, distribution }: { agent: Agent; distrib
           {busy === "dist" ? "Signing…" : "Save policy"}
         </button>
       </div>
+
+      {/* Take-profit / stop-loss rules */}
+      <TradeRulesControl agent={agent} rules={rules} />
 
       {/* Withdraw / sweep */}
       <div style={{ marginTop: 18, borderTop: "1px solid var(--border)", paddingTop: 16 }}>

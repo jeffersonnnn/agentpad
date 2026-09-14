@@ -25,7 +25,9 @@ import type {
   PrepareLaunchResult,
   SquareFeedEntry,
   SquareSort,
+  TradeRules,
 } from "./types";
+import type { AgentPnl } from "./server/pnl";
 
 // Empty base = same-origin Next.js route handlers (the default deployment).
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
@@ -45,6 +47,8 @@ export const ENDPOINTS = {
   agentFollow: (id: string) => `/api/agents/${encodeURIComponent(id)}/follow`,
   agentControl: (id: string) => `/api/agents/${encodeURIComponent(id)}/control`,
   agentDistribution: (id: string) => `/api/agents/${encodeURIComponent(id)}/distribution`,
+  agentRules: (id: string) => `/api/agents/${encodeURIComponent(id)}/rules`,
+  agentPnl: (id: string) => `/api/agents/${encodeURIComponent(id)}/pnl`,
   agentSweep: (id: string) => `/api/agents/${encodeURIComponent(id)}/sweep`,
   notifications: "/api/notifications",
   squareLeaderboard: "/api/square/leaderboard",
@@ -335,6 +339,9 @@ export function distributionMessage(agentId: string, mode: string, rateBps: numb
 export function sweepMessage(agentId: string, to: string, issuedIso: string): string {
   return `Slingshot sweep\nagent: ${agentId}\nto: ${to}\nissued: ${issuedIso}`;
 }
+export function rulesMessage(agentId: string, takeProfitBps: number, stopLossBps: number, issuedIso: string): string {
+  return `Slingshot rules\nagent: ${agentId}\ntake_profit_bps: ${takeProfitBps}\nstop_loss_bps: ${stopLossBps}\nissued: ${issuedIso}`;
+}
 
 /** Pause or resume the agent (creator-signed). Returns the new paused state. */
 export function controlAgent(id: string, input: { action: "pause" | "resume"; message: string; signature: Hex }): Promise<{ paused: boolean }> {
@@ -347,6 +354,24 @@ export function updateDistribution(
   input: { mode: string; rate_bps: number; cadence: string; message: string; signature: Hex },
 ): Promise<{ mode: string; rate_bps: number; cadence: string }> {
   return request(ENDPOINTS.agentDistribution(id), { method: "POST", body: JSON.stringify(input) });
+}
+
+/** Current take-profit / stop-loss rules (public read; defaults to 0/0). */
+export function getTradeRules(id: string): Promise<TradeRules> {
+  return request<TradeRules>(ENDPOINTS.agentRules(id));
+}
+
+/** Set the take-profit / stop-loss rules (creator-signed). Accepts percent; the server converts to bps. */
+export function updateTradeRules(
+  id: string,
+  input: { take_profit_pct: number; stop_loss_pct: number; message: string; signature: Hex },
+): Promise<TradeRules> {
+  return request<TradeRules>(ENDPOINTS.agentRules(id), { method: "POST", body: JSON.stringify(input) });
+}
+
+/** Realized PnL + high-water mark + distributable now (public read). */
+export function getAgentPnl(id: string): Promise<AgentPnl> {
+  return request<AgentPnl>(ENDPOINTS.agentPnl(id));
 }
 
 export interface SweepPlan {

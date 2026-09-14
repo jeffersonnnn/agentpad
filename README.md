@@ -59,6 +59,22 @@ fees -> treasury -> reason (OpenRouter) -> freshness gate -> real swap via sessi
     gas. `GET /api/agents/:id/sweep` dry-runs the plan (public reads); `POST` executes (creator-signed).
     Tested to the abort; a real execution (correct owner) moves funds and is user-triggered.
   - Sits beside the existing "Fund & manage" (top up + claim fees) and "Connect X" cards.
+- **Money-loop bundle** (2026-09-14, built with 3 parallel subagents, each backtested on the live DB):
+  - **Take-profit / stop-loss rules** (`trade_rules` table; `agent/loop.mjs` `decideAutoExit`/`maybeAutoExit`):
+    a per-agent, creator-signed rule. Before each reasoning pass the loop reads the agent's positions and
+    current value, computes unrealized PnL vs cost basis, and if it crosses take-profit or stop-loss it
+    sells the full holding through the existing guarded swap path. The realizing sell banks
+    `meta.realized_usdg`, which is what drives the first distribution. Thresholds are bps (0 = off).
+    `GET/POST /api/agents/:id/rules`; editable in the control panel (`TradeRulesControl`).
+  - **One-click claim + distribution history** (`ClaimCard`, `DistributionHistory`): a holder claims their
+    epoch share from the agent page. The wallet calls `Distributor.claim(epoch,index,account,amount,proof)`;
+    the proof comes from the existing `GET /api/agents/:id/claim`. A per-agent epoch table shows past
+    payouts with a per-row claim button where the connected wallet is eligible. This replaced the old
+    `DistributionsPanel`. The server never signs; the holder's own wallet sends the claim (ADR 0004).
+  - **Realized PnL + HWM card** (`web/lib/server/pnl.ts`, `PnlCard`, `GET /api/agents/:id/pnl`): a small
+    card showing Realized PnL, the high-water mark, and "Distributable now". It mirrors the keeper formula
+    1:1: `distributable = max(0, SUM(feed.meta->>'realized_usdg') - high_water_usdg) * rate_bps / 10000`,
+    paid only when the payout mode is `distribute`.
 
 ### Current on-chain state (2026-09-14)
 - **4 live agents** (18 stuck "deploying" failed-launch rows were deleted 2026-09-14; they held no funds).
@@ -82,16 +98,19 @@ npm run start` after a build. DB schema changes: apply additive ALTERs to the li
 (schema.sql is not auto-applied); AGENT_COLS reads must not reference a column that is not yet on the DB.
 
 ### Next (priority)
-1. **First distribution** - an agent must sell above the high-water mark, then the keeper pays holders.
-   The headline milestone still open. Needs price movement + a sell (or a take-profit rule, below).
+1. **First distribution** - the take-profit rule now gives a trigger: set take-profit on an agent that
+   holds a position, and a favorable price move auto-sells above the high-water mark, then the keeper pays
+   holders. To demo it, set a low take-profit on agent 51363ef5 (holds SGOV + SLV) and set its payout mode
+   to `distribute`. Still the headline milestone until one epoch publishes.
 2. **Fund** 1241af6b (USDG) and dc9c777d (ETH gas + USDG) so more agents trade (addresses above).
 3. **OpenRouter low-balance alert** in the Observatory (prevent silent reasoning stalls).
 4. **Launch a Degen agent** to demo 24/7 trading live.
-5. Trading-arm ideas (not built): take-profit/stop-loss rules; auto gas-from-fees top-up; paper/dry-run
-   mode; realized-PnL + HWM on the agent page; richer market signals. Control-panel follow-ups: sell
-   positions to USDG before a sweep; demonstrate the pause-skip on a live reasoner pass.
+5. Trading-arm ideas (not built): auto gas-from-fees top-up; paper/dry-run mode; richer market signals.
+   Control-panel follow-ups: sell positions to USDG before a sweep; demonstrate the pause-skip and an
+   auto-exit sell on a live reasoner pass (both are wired, neither has fired on-chain yet).
 6. **Standing gates:** rotate `DEPLOYER_KEY`; verify live X posting; security/legal review. Remaining
-   roadmap: one-click claim + distribution history (roadmap 2); real chart + trade history (roadmap 4).
+   roadmap: real chart + trade history (roadmap 4). (Done this session: take-profit/stop-loss rules;
+   one-click claim + distribution history, roadmap 2; realized-PnL + HWM on the agent page.)
 
 ### /brag videos this session (gitignored, delivered to the user)
 - `brag-output-2026-09-13-*` (My Agents, Flywheel, X connect), `brag-output-2026-09-13-204008` (My Agents),
