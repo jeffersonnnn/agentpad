@@ -5,7 +5,7 @@
 
 import type { Agent } from "@/lib/types";
 import { fmtCurvePrice, useCurvePrice, useReadyToGraduate, useTokenMeta } from "./onchain";
-import { AddressPill, ArchetypeChip, relativeTime, Skeleton, StatusBadge, TokenLogo, styles } from "./ui";
+import { ArchetypeChip, relativeTime, Skeleton, StatusBadge, TokenLogo, styles } from "./ui";
 
 export function AgentHeader({ agent }: { agent: Agent }) {
   const meta = useTokenMeta(agent.token_addr);
@@ -33,14 +33,7 @@ export function AgentHeader({ agent }: { agent: Agent }) {
           <span>launched {relativeTime(agent.created_at)}</span>
         </div>
         <div className={styles.subrow}>
-          {agent.token_addr ? (
-            <>
-              <span>token</span>
-              <AddressPill addr={agent.token_addr} kind="token" />
-            </>
-          ) : (
-            <span>token not yet launched</span>
-          )}
+          <span>{agent.token_addr ? "token launched" : "token not yet launched"}</span>
           {agent.quote_asset && (
             <>
               <span>·</span>

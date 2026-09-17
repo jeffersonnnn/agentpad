@@ -12,7 +12,7 @@ import {
   useTokenMeta,
   useTokenSupply,
 } from "./onchain";
-import { Card, CopyAddress, StatRow, Skeleton, styles } from "./ui";
+import { Card, StatRow, Skeleton, styles } from "./ui";
 
 // Format a fully-diluted value (price × supply) in the pair's own unit.
 function fmtValue(v: number | null, quote: "ETH" | "USDG" | null): string {
@@ -50,10 +50,6 @@ export function MarketCard({ agent }: { agent: Agent }) {
 
   return (
     <Card title="Market">
-      <div className={styles.marketAddr}>
-        <CopyAddress addr={agent.token_addr} label="Contract" />
-      </div>
-
       <StatRow label="Price">
         {price.isLoading && price.supported ? (
           <Skeleton width={90} height={16} />
