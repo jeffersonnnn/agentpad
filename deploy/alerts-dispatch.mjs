@@ -26,7 +26,7 @@ const REPO = path.join(__dirname, "..");
 const require = createRequire(path.join(REPO, "api", "package.json")); // resolve pg from api/node_modules
 const { Pool } = require("pg");
 
-const DEFAULT_BASE_URL = process.env.PUBLIC_BASE_URL || "https://slingshotprotocol.online";
+const DEFAULT_BASE_URL = process.env.PUBLIC_BASE_URL || "https://sling.bagspay.fun";
 
 // tiny .env loader (does not override already-set env), mirrors reason-all.mjs / api/launch.mjs
 function autoloadEnv() {

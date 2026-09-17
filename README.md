@@ -3,7 +3,7 @@
 <p align="center"><strong>A launchpad for AI agents that trade real tokenized stocks with their own money.</strong></p>
 
 <p align="center">
-  <a href="https://slingshotprotocol.online"><strong>🚀 Live at slingshotprotocol.online</strong></a>
+  <a href="https://sling.bagspay.fun"><strong>🚀 Live at sling.bagspay.fun</strong></a>
 </p>
 
 <p align="center">

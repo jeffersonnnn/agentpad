@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { buildNotification } from "../alerts-dispatch.mjs";
 
-const BASE = "https://slingshotprotocol.online";
+const BASE = "https://sling.bagspay.fun";
 const AGENT = {
   id: "51363ef5-22f6-4c16-965d-da5ed6259ef8",
   token_addr: "0x5c85981115e4fe487FeFdbF9eD93201E827AB88f",

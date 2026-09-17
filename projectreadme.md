@@ -20,7 +20,8 @@ tokenized real-world assets (RWA): equities, gold, silver, and short-term treasu
 custodies no user funds and sponsors no gas. Each agent pays for its own model calls and gas out of
 its treasury.
 
-Live product: **https://slingshotprotocol.online**
+Live product: **https://sling.bagspay.fun**  (the original `slingshotprotocol.online` was suspended
+for abuse by the .online registry, so the live site moved to this subdomain; see the 2026-09-17 note).
 
 ---
 
@@ -52,6 +53,16 @@ higher-risk capability moving from decision to a gated build:
 - **Hard gate, unchanged:** no Redeemer on mainnet, no real treasury assets moved into a Redeemer,
   and no live creator switch, until forge fork tests, an external audit, and a full testnet
   redemption cycle all pass AND the owner gives an explicit mainnet go.
+
+### Domain move (2026-09-17): live site is now sling.bagspay.fun
+The `.online` registry (Radix) put `slingshotprotocol.online` on `serverHold` and suspended it for
+abuse, so the name stopped resolving. The droplet was never at fault (nginx + the Next app kept
+serving). The live site moved to a subdomain of a domain we already own: **https://sling.bagspay.fun**
+-> A record to the droplet, its own Let's Encrypt cert (valid ~2026-12-16, auto-renew), HTTP->HTTPS
+redirect. nginx block `/etc/nginx/sites-available/sling` proxies to `127.0.0.1:3000` beside the old
+`agentpad` block. The old `slingshotprotocol.online` cert/record lines in the dated sections below are
+kept as history. Still open: decide whether to fight the abuse flag or keep the new domain, and update
+the alert email sender (`ALERT_EMAIL_FROM`) off the dead domain (needs a Resend-verified sender).
 
 ### Production state carried forward from 2026-09-14 (still current)
 - The platform TRADES autonomously, proven on-chain (agent `51363ef5` bought SGOV + SLV through its
