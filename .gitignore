@@ -24,3 +24,9 @@ web/out/
 # /brag video output (local only) — base dir and every timestamped run
 brag-output/
 brag-output-*/
+
+# local marketing visuals (not part of the codebase)
+tweet-visuals/
+
+# macOS junk
+.DS_Store
